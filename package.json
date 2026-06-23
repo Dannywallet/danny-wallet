@@ -1,0 +1,75 @@
+{
+  "name": "danny-wallet",
+  "version": "1.0.0",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "electron:dev": "concurrently -k -n NEXT,ELECTRON \"next dev\" \"wait-on tcp:3000 && electron .\"",
+    "electron:prepare": "node electron/prepare-standalone.js",
+    "electron:build": "next build && npm run electron:prepare && electron-builder"
+  },
+  "dependencies": {
+    "@walletconnect/core": "^2.23.9",
+    "@walletconnect/utils": "^2.23.9",
+    "@walletconnect/web3wallet": "^1.16.1",
+    "dan-wallet-web": "file:../DAN-wallet-web",
+    "ethers": "^6.16.0",
+    "next": "^14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.15",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "autoprefixer": "10.4.20",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "postcss": "8.4.41",
+    "rcedit": "^5.0.2",
+    "tailwindcss": "3.4.10",
+    "typescript": "5.5.4",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.dannychain.wallet",
+    "productName": "Danny Wallet",
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".next/standalone",
+        "to": "standalone"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "mac": {
+      "icon": "build/icon.png",
+      "target": [
+        "dmg"
+      ]
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "target": [
+        "AppImage"
+      ]
+    },
+    "directories": {
+      "output": "dist-electron"
+    }
+  }
+}

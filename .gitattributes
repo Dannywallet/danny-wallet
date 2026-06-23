@@ -1,0 +1,7 @@
+# บังคับท้ายบรรทัดเป็น LF สำหรับไฟล์ที่รันบน Linux/Docker (กัน CRLF ทำสคริปต์พังบน VPS)
+*.sh         text eol=lf
+Dockerfile   text eol=lf
+Caddyfile    text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+.env.example text eol=lf

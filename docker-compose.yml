@@ -1,0 +1,32 @@
+# Danny Wallet — deploy ครบในคำสั่งเดียว: docker compose up -d --build
+# app (Next standalone) + caddy (reverse proxy + HTTPS อัตโนมัติจาก Let's Encrypt)
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./data:/app/data          # เก็บคำขอลงลิสต์ + โลโก้ที่อนุมัติ (ถาวร)
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      - DOMAIN=${DOMAIN}          # อ่านจาก .env (โดเมนของคุณ)
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data          # เก็บ cert (ออกครั้งเดียว ใช้ซ้ำ)
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

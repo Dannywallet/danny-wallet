@@ -1,0 +1,11 @@
+# {$DOMAIN} อ่านจาก env (ตั้งใน .env) — Caddy ออก HTTPS (Let's Encrypt) อัตโนมัติ
+{$DOMAIN} {
+	reverse_proxy app:3000
+	encode gzip
+	header {
+		# ความปลอดภัยพื้นฐาน
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+	}
+}

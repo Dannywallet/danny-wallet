@@ -1,0 +1,25 @@
+name: Deploy to VPS
+
+# auto-deploy เมื่อ push เข้า main (หรือกดรันเองจากแท็บ Actions)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH → pull + docker compose up
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -e
+            cd ${{ secrets.VPS_PATH }}
+            git pull --ff-only
+            docker compose up -d --build
+            docker image prune -f

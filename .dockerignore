@@ -1,0 +1,12 @@
+node_modules
+.next
+dist-electron
+electron
+.git
+.gitignore
+data
+*.log
+npm-debug.log*
+README.md
+.vscode
+.claude

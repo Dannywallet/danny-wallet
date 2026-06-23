@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Noto Sans Thai", "Inter", system-ui, -apple-system, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  @apply antialiased;
+  /* พื้นหลังมืดให้เข้ากับธีม wallet (PhoneShell จะวาดทับอีกชั้น) */
+  background: #05060c;
+  color: #e6e9f5;
+}
+
+/* ซ่อน spinner ของ input number ให้ดูสะอาด */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}

@@ -1,0 +1,142 @@
+/* Danny Chain Wallet — ธีม Dark Futuristic / Neon (เฉพาะ /wallet) */
+
+.dw-root {
+  --dw-bg: #070b14;
+  --dw-bg2: #0b1120;
+  --dw-panel: rgba(255, 255, 255, 0.04);
+  --dw-panel-strong: rgba(255, 255, 255, 0.07);
+  --dw-border: rgba(255, 255, 255, 0.1);
+  --dw-text: #e8edf7;
+  --dw-muted: #8a97b1;
+  --dw-purple: #a855f7;
+  --dw-violet: #7c3aed;
+  --dw-cyan: #22d3ee;
+  --dw-green: #34d399;
+  --dw-rose: #f43f5e;
+  --dw-amber: #f59e0b;
+  --dw-card: rgba(7, 11, 20, 0.72); /* การ์ด onboarding / phone-shell */
+  --dw-popover: rgba(11, 17, 32, 0.98); /* dropdown / modal */
+
+  color: var(--dw-text);
+  font-family: var(--font-sans);
+}
+
+/* ===== ธีมสว่าง (html.theme-light) ===== */
+html.theme-light .dw-root {
+  --dw-bg: #eef1f8;
+  --dw-bg2: #e2e8f4;
+  --dw-panel: rgba(16, 24, 48, 0.045);
+  --dw-panel-strong: rgba(16, 24, 48, 0.08);
+  --dw-border: rgba(16, 24, 48, 0.12);
+  --dw-text: #121a30;
+  --dw-muted: #58627a;
+  --dw-purple: #7c3aed;
+  --dw-violet: #6d28d9;
+  --dw-cyan: #0891b2;
+  --dw-green: #059669;
+  --dw-rose: #e11d48;
+  --dw-amber: #d97706;
+  --dw-card: rgba(255, 255, 255, 0.9);
+  --dw-popover: rgba(255, 255, 255, 0.98);
+}
+html.theme-light .dw-bg {
+  background:
+    radial-gradient(60% 50% at 15% 0%, rgba(124, 58, 237, 0.1), transparent 60%),
+    radial-gradient(55% 45% at 95% 8%, rgba(8, 145, 178, 0.1), transparent 60%),
+    radial-gradient(70% 60% at 50% 110%, rgba(5, 150, 105, 0.08), transparent 60%),
+    linear-gradient(180deg, var(--dw-bg) 0%, var(--dw-bg2) 100%);
+}
+
+/* พื้นหลังเรืองแสง */
+.dw-bg {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(60% 50% at 15% 0%, rgba(124, 58, 237, 0.28), transparent 60%),
+    radial-gradient(55% 45% at 95% 8%, rgba(34, 211, 238, 0.22), transparent 60%),
+    radial-gradient(70% 60% at 50% 110%, rgba(52, 211, 153, 0.16), transparent 60%),
+    linear-gradient(180deg, var(--dw-bg) 0%, var(--dw-bg2) 100%);
+}
+
+/* การ์ดแก้ว */
+.dw-glass {
+  background: var(--dw-panel);
+  border: 1px solid var(--dw-border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.dw-glass-strong {
+  background: var(--dw-panel-strong);
+  border: 1px solid var(--dw-border);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+/* เงานีออน */
+.dw-glow-violet { box-shadow: 0 10px 40px -10px rgba(124, 58, 237, 0.6); }
+.dw-glow-cyan { box-shadow: 0 10px 40px -10px rgba(34, 211, 238, 0.55); }
+.dw-glow-green { box-shadow: 0 10px 40px -10px rgba(52, 211, 153, 0.5); }
+
+.dw-text-grad {
+  background: linear-gradient(90deg, #c4b5fd, #67e8f9 55%, #6ee7b7);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ปุ่มหลัก */
+.dw-btn-primary {
+  background: linear-gradient(100deg, var(--dw-violet), var(--dw-cyan));
+  color: #fff;
+  box-shadow: 0 10px 30px -8px rgba(124, 58, 237, 0.7);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.dw-btn-primary:hover { filter: brightness(1.08); }
+.dw-btn-primary:active { transform: scale(0.97); }
+.dw-btn-primary:disabled { opacity: 0.45; filter: grayscale(0.4); box-shadow: none; }
+
+.dw-btn-ghost {
+  background: var(--dw-panel);
+  border: 1px solid var(--dw-border);
+  color: var(--dw-text);
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.dw-btn-ghost:hover { background: var(--dw-panel-strong); }
+.dw-btn-ghost:active { transform: scale(0.97); }
+
+/* แถบ scroll บางในกรอบมือถือ */
+.dw-scroll::-webkit-scrollbar { width: 0; height: 0; }
+.dw-scroll { scrollbar-width: none; }
+
+/* animations */
+@keyframes dw-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.dw-float { animation: dw-float 6s ease-in-out infinite; }
+
+@keyframes dw-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+  70% { box-shadow: 0 0 0 10px rgba(52, 211, 153, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+}
+.dw-pulse-ring { animation: dw-pulse-ring 2.4s ease-out infinite; }
+
+@keyframes dw-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.dw-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+  background-size: 200% 100%;
+  animation: dw-shimmer 2.2s linear infinite;
+}
+
+@keyframes dw-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.dw-rise { animation: dw-rise 0.4s ease both; }
+
+/* keypad press */
+.dw-key:active { transform: scale(0.92); background: var(--dw-panel-strong); }

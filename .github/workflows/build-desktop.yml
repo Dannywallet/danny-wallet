@@ -1,0 +1,36 @@
+name: Build Desktop (Electron)
+
+# สร้าง installer .exe เมื่อ push tag ขึ้นต้นด้วย v (เช่น v1.0.0) หรือกดรันเอง
+# build บน Windows runner ของ GitHub → เลี่ยงปัญหา winCodeSign symlink ที่ติดในเครื่อง local
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build Electron (installer + portable)
+        run: npm run electron:build
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false" # ไม่เซ็นโค้ด (unsigned build)
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: danny-wallet-windows
+          path: |
+            dist-electron/*.exe
+            dist-electron/*.blockmap
+          if-no-files-found: error
