@@ -10,15 +10,16 @@ import { DappBrowser } from "@/components/wallet/DappBrowser";
 import { CHAIN } from "@/lib/wallet/mock-data";
 import { formatUsd } from "@/lib/wallet/format";
 import { Warn, Scan, Swap, ChevronRight, Globe, Check, Copy } from "@/components/wallet/Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
 const EXPLORER = "https://dannyscan.com";
 
 // dApp ในระบบนิเวศ Danny Chain
 const DAPPS = [
-  { name: "dandex", desc: "สลับเหรียญ (DEX)", url: "https://dandex.io", tag: "DX", gradient: "linear-gradient(135deg,#7c3aed,#22d3ee)" },
-  { name: "Dannybridge", desc: "บริดจ์ข้ามเชน", url: "https://dannybridge.com", tag: "BR", gradient: "linear-gradient(135deg,#22d3ee,#34d399)" },
-  { name: "Dancharts", desc: "กราฟ/วิเคราะห์", url: "https://dancharts.com", tag: "CH", gradient: "linear-gradient(135deg,#f59e0b,#f43f5e)" },
-  { name: "Dannyscan", desc: "บล็อกเชน explorer", url: "https://dannyscan.com", tag: "SC", gradient: "linear-gradient(135deg,#6366f1,#a855f7)" },
+  { name: "dandex", desc: "connect.descDex", url: "https://dandex.io", tag: "DX", gradient: "linear-gradient(135deg,#7c3aed,#22d3ee)" },
+  { name: "Dannybridge", desc: "connect.descBridge", url: "https://dannybridge.com", tag: "BR", gradient: "linear-gradient(135deg,#22d3ee,#34d399)" },
+  { name: "Dancharts", desc: "connect.descCharts", url: "https://dancharts.com", tag: "CH", gradient: "linear-gradient(135deg,#f59e0b,#f43f5e)" },
+  { name: "Dannyscan", desc: "connect.descExplorer", url: "https://dannyscan.com", tag: "SC", gradient: "linear-gradient(135deg,#6366f1,#a855f7)" },
 ];
 
 type LookupResult =
@@ -45,15 +46,16 @@ type Resp = {
 function compact(n: number): string {
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 }).format(n);
 }
-function ago(ts: number): string {
+function ago(ts: number, tr: (k: string) => string): string {
   const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
-  if (s < 60) return `${s} วิ`;
+  if (s < 60) return `${s} ${tr("time.sec")}`;
   const m = Math.round(s / 60);
-  if (m < 60) return `${m} นาที`;
-  return `${Math.round(m / 60)} ชม.`;
+  if (m < 60) return `${m} ${tr("time.min")}`;
+  return `${Math.round(m / 60)} ${tr("time.hour")}`;
 }
 
 export default function ExplorerPage() {
+  const { t: tr } = useI18n();
   const [data, setData] = React.useState<Resp | null>(null);
   const [state, setState] = React.useState<"loading" | "ok" | "error">("loading");
   const [tab, setTab] = React.useState<"tx" | "block">("tx");
@@ -125,10 +127,10 @@ export default function ExplorerPage() {
           <h1 className="text-xl font-bold">Explorer</h1>
           <p className="flex items-center gap-1.5 text-xs text-[var(--dw-muted)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--dw-green)] dw-pulse-ring" />
-            {CHAIN.name} · สดจาก dannyscan
+            {CHAIN.name} {tr("explorer.liveFrom")}
           </p>
         </div>
-        <SecurityBadge label="ข้อมูลจริง" />
+        <SecurityBadge label={tr("common.liveData")} />
       </div>
 
       <Screen className="pt-3">
@@ -138,8 +140,8 @@ export default function ExplorerPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && search()}
-            placeholder="ค้นหา ที่อยู่ / ธุรกรรม / บล็อก"
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
+            placeholder={tr("explorer.searchPlaceholder")}
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--dw-muted)]"
             style={{ color: "var(--dw-text)" }}
           />
           <button onClick={search} className="text-[var(--dw-cyan)]"><Scan size={18} /></button>
@@ -147,18 +149,18 @@ export default function ExplorerPage() {
 
         {/* เปิด dApp */}
         <div className="mb-4">
-          <p className="mb-2 px-1 text-xs font-medium text-[var(--dw-muted)]">เปิด dApp</p>
+          <p className="mb-2 px-1 text-xs font-medium text-[var(--dw-muted)]">{tr("explorer.openDapp")}</p>
           <div className="dw-glass flex items-center gap-2 rounded-2xl px-4 py-3 focus-within:border-[var(--dw-cyan)]/50">
             <Globe size={16} className="shrink-0 text-[var(--dw-muted)]" />
             <input
               value={dappUrl}
               onChange={(e) => setDappUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && openDapp()}
-              placeholder="ป้อนลิงก์ dApp เช่น dandex.io"
+              placeholder={tr("explorer.dappUrlPlaceholder")}
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--dw-muted)]"
               style={{ color: "var(--dw-text)" }}
             />
             <button
@@ -166,7 +168,7 @@ export default function ExplorerPage() {
               disabled={!dappUrl.trim()}
               className="dw-btn-primary rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
             >
-              เปิด
+              {tr("common.open")}
             </button>
           </div>
           {/* ปุ่มลัด dApp ในระบบนิเวศ */}
@@ -185,7 +187,7 @@ export default function ExplorerPage() {
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{d.name}</p>
-                  <p className="truncate text-[11px] text-[var(--dw-muted)]">{d.desc}</p>
+                  <p className="truncate text-[11px] text-[var(--dw-muted)]">{tr(d.desc)}</p>
                 </div>
               </button>
             ))}
@@ -198,20 +200,20 @@ export default function ExplorerPage() {
               <span className="grid h-7 w-7 place-items-center rounded-lg bg-[var(--dw-cyan)]/15 text-[var(--dw-cyan)]">
                 <Scan size={15} />
               </span>
-              เชื่อมผ่าน WalletConnect (วาง URI)
+              {tr("explorer.connectWc")}
             </span>
             <ChevronRight size={16} className="text-[var(--dw-muted)]" />
           </Link>
           <p className="mt-2 flex items-center gap-1 px-1 text-[11px] text-[var(--dw-muted)]">
-            <Warn size={12} className="text-[var(--dw-amber)]" /> เปิด dApp ในแอป — เชื่อมกระเป๋าภายใน dApp และตรวจลิงก์ทุกครั้ง
+            <Warn size={12} className="text-[var(--dw-amber)]" /> {tr("explorer.dappWarn")}
           </p>
         </div>
 
         {state === "error" && (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <Warn size={30} className="text-[var(--dw-rose)]" />
-            <p className="text-sm text-[var(--dw-muted)]">เชื่อมต่อ explorer ไม่สำเร็จ</p>
-            <button onClick={load} className="dw-btn-primary rounded-xl px-5 py-2.5 text-sm font-semibold">ลองใหม่</button>
+            <p className="text-sm text-[var(--dw-muted)]">{tr("activity.connectFailed")}</p>
+            <button onClick={load} className="dw-btn-primary rounded-xl px-5 py-2.5 text-sm font-semibold">{tr("common.retry")}</button>
           </div>
         )}
 
@@ -228,21 +230,21 @@ export default function ExplorerPage() {
           <>
             {/* สถิติเครือข่าย */}
             <div className="grid grid-cols-2 gap-2.5">
-              <Stat label="บล็อกล่าสุด" value={`#${compact(data.stats.totalBlocks)}`} />
-              <Stat label="ธุรกรรมทั้งหมด" value={compact(data.stats.totalTransactions)} />
-              <Stat label="ที่อยู่ทั้งหมด" value={compact(data.stats.totalAddresses)} />
-              <Stat label="เวลา/บล็อก" value={`${data.stats.avgBlockTimeSec.toFixed(1)} วิ`} />
+              <Stat label={tr("explorer.latestBlock")} value={`#${compact(data.stats.totalBlocks)}`} />
+              <Stat label={tr("explorer.totalTx")} value={compact(data.stats.totalTransactions)} />
+              <Stat label={tr("explorer.totalAddr")} value={compact(data.stats.totalAddresses)} />
+              <Stat label={tr("explorer.blockTime")} value={`${data.stats.avgBlockTimeSec.toFixed(1)} ${tr("time.sec")}`} />
             </div>
             <div className="dw-glass mt-2.5 flex items-center justify-between rounded-2xl px-4 py-3 text-sm">
-              <span className="text-[var(--dw-muted)]">ธุรกรรมวันนี้</span>
+              <span className="text-[var(--dw-muted)]">{tr("explorer.txToday")}</span>
               <span className="font-semibold tabular-nums">{compact(data.stats.txToday)}</span>
-              <span className="text-[var(--dw-muted)]">ใช้งานเครือข่าย</span>
+              <span className="text-[var(--dw-muted)]">{tr("explorer.networkUsage")}</span>
               <span className="font-semibold tabular-nums">{(data.stats.utilizationPct * 100).toFixed(2)}%</span>
             </div>
 
             {/* แท็บ */}
             <div className="dw-glass mt-4 flex gap-1 rounded-2xl p-1">
-              {([["tx", "ธุรกรรมล่าสุด"], ["block", "บล็อกล่าสุด"]] as const).map(([k, label]) => (
+              {([["tx", tr("activity.recentTx")], ["block", tr("explorer.recentBlocks")]] as const).map(([k, label]) => (
                 <button
                   key={k}
                   onClick={() => setTab(k)}
@@ -279,12 +281,12 @@ export default function ExplorerPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-mono text-sm">{t.hashShort}</p>
                         <p className="truncate text-xs text-[var(--dw-muted)]">
-                          {t.from} → {t.to || "สร้างสัญญา"}
+                          {t.from} → {t.to || tr("explorer.createContract")}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold tabular-nums">{t.valueDan > 0 ? `${compact(t.valueDan)} DAN` : "—"}</p>
-                        <p className="text-[11px] text-[var(--dw-muted)]">{ago(t.timestamp)}</p>
+                        <p className="text-[11px] text-[var(--dw-muted)]">{ago(t.timestamp, tr)}</p>
                       </div>
                     </a>
                   ))
@@ -301,11 +303,11 @@ export default function ExplorerPage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold tabular-nums">#{b.height}</p>
-                        <p className="truncate text-xs text-[var(--dw-muted)]">ผู้ขุด {b.miner}</p>
+                        <p className="truncate text-xs text-[var(--dw-muted)]">{tr("explorer.minerPre")} {b.miner}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold tabular-nums">{b.txCount} ธุรกรรม</p>
-                        <p className="text-[11px] text-[var(--dw-muted)]">{ago(b.timestamp)}</p>
+                        <p className="text-sm font-semibold tabular-nums">{b.txCount} {tr("explorer.txCountSuf")}</p>
+                        <p className="text-[11px] text-[var(--dw-muted)]">{ago(b.timestamp, tr)}</p>
                       </div>
                     </a>
                   ))}
@@ -317,14 +319,14 @@ export default function ExplorerPage() {
               rel="noopener noreferrer"
               className="dw-glass mt-3 flex items-center justify-center gap-2 rounded-2xl py-3 text-sm text-[var(--dw-muted)] hover:text-white"
             >
-              เปิด Dannyscan เต็มรูปแบบ <ChevronRight size={16} />
+              {tr("explorer.openFullDannyscan")} <ChevronRight size={16} />
             </a>
           </>
         )}
       </Screen>
 
       {/* ผลค้นหา (ในแอป) */}
-      <Sheet open={!!result} onClose={() => setResult(null)} title="ผลการค้นหา">
+      <Sheet open={!!result} onClose={() => setResult(null)} title={tr("explorer.searchResult")}>
         {!result ? null : result.type === "loading" ? (
           <div className="space-y-2.5">
             <div className="dw-glass dw-shimmer h-16 rounded-2xl" />
@@ -338,46 +340,46 @@ export default function ExplorerPage() {
                   result.status === "ok" ? "bg-[var(--dw-green)]/12 text-[var(--dw-green)]" : "bg-[var(--dw-rose)]/12 text-[var(--dw-rose)]"
                 }`}
               >
-                {result.status === "ok" ? "สำเร็จ" : "ล้มเหลว"}
+                {result.status === "ok" ? tr("tx.statusSuccess") : tr("tx.statusFailed")}
               </span>
-              <span className="text-xs text-[var(--dw-muted)]">ธุรกรรม</span>
+              <span className="text-xs text-[var(--dw-muted)]">{tr("explorer.txLabel")}</span>
             </div>
             <div className="dw-glass space-y-3 rounded-2xl p-4 text-sm">
               <RowCopy label="Hash" value={result.hash} short onCopy={copy} copied={copied} />
-              <RowCopy label="จาก" value={result.from} short onCopy={copy} copied={copied} />
-              <RowCopy label="ถึง" value={result.to || "สร้างสัญญา"} short onCopy={copy} copied={copied} />
-              <Row label="มูลค่า" value={result.valueDan > 0 ? `${result.valueDan.toLocaleString("en-US", { maximumFractionDigits: 6 })} DAN` : "0 DAN"} />
-              <Row label="ค่าธรรมเนียม" value={`${result.feeDan.toLocaleString("en-US", { maximumFractionDigits: 8 })} DAN`} />
-              <Row label="บล็อก" value={result.block != null ? `#${result.block}` : "—"} />
-              {result.method && <Row label="ฟังก์ชัน" value={result.method} />}
+              <RowCopy label={tr("send.from")} value={result.from} short onCopy={copy} copied={copied} />
+              <RowCopy label={tr("send.to")} value={result.to || tr("explorer.createContract")} short onCopy={copy} copied={copied} />
+              <Row label={tr("explorer.value")} value={result.valueDan > 0 ? `${result.valueDan.toLocaleString("en-US", { maximumFractionDigits: 6 })} DAN` : "0 DAN"} />
+              <Row label={tr("explorer.fee")} value={`${result.feeDan.toLocaleString("en-US", { maximumFractionDigits: 8 })} DAN`} />
+              <Row label={tr("explorer.block")} value={result.block != null ? `#${result.block}` : "—"} />
+              {result.method && <Row label={tr("explorer.function")} value={result.method} />}
             </div>
             <ExplorerLink href={`${EXPLORER}/tx/${result.hash}`} />
           </div>
         ) : result.type === "address" ? (
           <div>
             <div className="dw-glass-strong mb-3 rounded-2xl p-4 text-center">
-              <p className="text-xs text-[var(--dw-muted)]">{result.isContract ? "สัญญาอัจฉริยะ" : "กระเป๋า"}</p>
+              <p className="text-xs text-[var(--dw-muted)]">{result.isContract ? tr("explorer.smartContract") : tr("explorer.wallet")}</p>
               <p className="mt-1 text-2xl font-bold tabular-nums">
                 {result.balanceDan.toLocaleString("en-US", { maximumFractionDigits: 4 })} DAN
               </p>
             </div>
             <div className="dw-glass space-y-3 rounded-2xl p-4 text-sm">
-              <RowCopy label="ที่อยู่" value={result.address} short onCopy={copy} copied={copied} />
-              <Row label="ประเภท" value={result.isContract ? "Contract" : "EOA (กระเป๋า)"} />
-              <Row label="มีโทเคน" value={result.hasTokens ? "มี" : "ไม่มี"} />
+              <RowCopy label={tr("explorer.address")} value={result.address} short onCopy={copy} copied={copied} />
+              <Row label={tr("explorer.type")} value={result.isContract ? "Contract" : tr("explorer.eoaWallet")} />
+              <Row label={tr("explorer.hasTokens")} value={result.hasTokens ? tr("common.yes") : tr("common.no")} />
             </div>
             <ExplorerLink href={`${EXPLORER}/address/${result.address}`} />
           </div>
         ) : result.type === "block" ? (
           <div>
             <div className="dw-glass-strong mb-3 rounded-2xl p-4 text-center">
-              <p className="text-xs text-[var(--dw-muted)]">บล็อก</p>
+              <p className="text-xs text-[var(--dw-muted)]">{tr("explorer.block")}</p>
               <p className="mt-1 text-2xl font-bold tabular-nums">#{result.height}</p>
             </div>
             <div className="dw-glass space-y-3 rounded-2xl p-4 text-sm">
-              <Row label="ธุรกรรม" value={`${result.txCount} รายการ`} />
-              <RowCopy label="ผู้ขุด" value={result.miner} short onCopy={copy} copied={copied} />
-              <Row label="ใช้แก๊ส" value={`${result.gasUsedPct.toFixed(2)}%`} />
+              <Row label={tr("explorer.txLabel")} value={`${result.txCount} ${tr("explorer.itemsSuf")}`} />
+              <RowCopy label={tr("explorer.minerPre")} value={result.miner} short onCopy={copy} copied={copied} />
+              <Row label={tr("explorer.gasUsed")} value={`${result.gasUsedPct.toFixed(2)}%`} />
             </div>
             <ExplorerLink href={`${EXPLORER}/block/${result.height}`} />
           </div>
@@ -385,7 +387,7 @@ export default function ExplorerPage() {
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <Warn size={28} className="text-[var(--dw-amber)]" />
             <p className="text-sm text-[var(--dw-muted)]">
-              {result.type === "notfound" ? "ไม่พบข้อมูลที่ค้นหา" : result.type === "invalid" ? "รูปแบบไม่ถูกต้อง (ที่อยู่ 0x.. / ธุรกรรม 0x.. / เลขบล็อก)" : "เกิดข้อผิดพลาด"}
+              {result.type === "notfound" ? tr("explorer.notFound") : result.type === "invalid" ? tr("explorer.invalidFormat") : tr("explorer.error")}
             </p>
           </div>
         )}
@@ -426,6 +428,7 @@ function RowCopy({
 }
 
 function ExplorerLink({ href }: { href: string }) {
+  const { t: tr } = useI18n();
   return (
     <a
       href={href}
@@ -433,7 +436,7 @@ function ExplorerLink({ href }: { href: string }) {
       rel="noopener noreferrer"
       className="dw-glass mt-3 flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs text-[var(--dw-muted)] hover:text-white"
     >
-      <Globe size={14} /> ดูเต็มบน Dannyscan
+      <Globe size={14} /> {tr("explorer.viewFullDannyscan")}
     </a>
   );
 }

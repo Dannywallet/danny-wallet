@@ -3,6 +3,7 @@
 import React from "react";
 import { WORDLIST } from "@/lib/wallet/wordlist";
 import { Check } from "./Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
 const SET = new Set(WORDLIST);
 
@@ -24,6 +25,7 @@ export function SeedImportGrid({
   words: string[];
   onChange: (next: string[]) => void;
 }) {
+  const { t } = useI18n();
   const [active, setActive] = React.useState(0);
   const inputs = React.useRef<(HTMLInputElement | null)[]>([]);
 
@@ -88,7 +90,7 @@ export function SeedImportGrid({
                 autoComplete="off"
                 autoCapitalize="off"
                 spellCheck={false}
-                className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-white/20"
+                className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-[var(--dw-muted)]"
                 style={{ color: "var(--dw-text)" }}
                 placeholder="·····"
               />
@@ -102,7 +104,7 @@ export function SeedImportGrid({
       <div className="mt-3 min-h-[44px]">
         {suggestions.length > 0 ? (
           <>
-            <p className="mb-1.5 text-[11px] text-[var(--dw-muted)]">ตัวเลือกที่คล้ายกัน</p>
+            <p className="mb-1.5 text-[11px] text-[var(--dw-muted)]">{t("seed.similarOptions")}</p>
             <div className="flex gap-2">
               {suggestions.map((w) => (
                 <button
@@ -118,7 +120,7 @@ export function SeedImportGrid({
           </>
         ) : (
           <p className="pt-2 text-center text-[11px] text-[var(--dw-muted)]">
-            พิมพ์ตัวอักษรเพื่อดูคำแนะนำ แล้วแตะเพื่อเลือก
+            {t("seed.typeHint")}
           </p>
         )}
       </div>

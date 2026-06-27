@@ -4,30 +4,32 @@ import React from "react";
 import type { Tx } from "@/lib/wallet/mock-data";
 import { formatToken } from "@/lib/wallet/format";
 import { ArrowUp, ArrowDown, Swap } from "./Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
-function timeAgo(ts: number): string {
+function timeAgo(ts: number, t: (k: string) => string): string {
   const diff = Date.now() - ts;
   const m = Math.round(diff / 60000);
-  if (m < 60) return `${m} นาทีที่แล้ว`;
+  if (m < 60) return `${m} ${t("time.min")} ${t("time.ago")}`;
   const h = Math.round(m / 60);
-  if (h < 24) return `${h} ชม.ที่แล้ว`;
+  if (h < 24) return `${h} ${t("time.hour")} ${t("time.ago")}`;
   const d = Math.round(h / 24);
-  return `${d} วันที่แล้ว`;
+  return `${d} ${t("time.day")} ${t("time.ago")}`;
 }
 
 const META = {
-  send: { label: "ส่ง", color: "var(--dw-rose)", Icon: ArrowUp, sign: "-" },
-  receive: { label: "รับ", color: "var(--dw-green)", Icon: ArrowDown, sign: "+" },
-  swap: { label: "สลับ", color: "var(--dw-cyan)", Icon: Swap, sign: "" },
+  send: { labelKey: "common.send", color: "var(--dw-rose)", Icon: ArrowUp, sign: "-" },
+  receive: { labelKey: "common.receive", color: "var(--dw-green)", Icon: ArrowDown, sign: "+" },
+  swap: { labelKey: "common.swap", color: "var(--dw-cyan)", Icon: Swap, sign: "" },
 } as const;
 
 const STATUS = {
-  confirmed: { label: "สำเร็จ", cls: "text-[var(--dw-green)]" },
-  pending: { label: "กำลังดำเนินการ", cls: "text-[var(--dw-amber)]" },
-  failed: { label: "ล้มเหลว", cls: "text-[var(--dw-rose)]" },
+  confirmed: { labelKey: "tx.statusSuccess", cls: "text-[var(--dw-green)]" },
+  pending: { labelKey: "tx.statusPending", cls: "text-[var(--dw-amber)]" },
+  failed: { labelKey: "tx.statusFailed", cls: "text-[var(--dw-rose)]" },
 } as const;
 
 export function TxRow({ tx }: { tx: Tx }) {
+  const { t } = useI18n();
   const m = META[tx.type];
   const s = STATUS[tx.status];
   return (
@@ -40,11 +42,11 @@ export function TxRow({ tx }: { tx: Tx }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="font-medium">
-          {m.label} {tx.token}
+          {t(m.labelKey)} {tx.token}
           {tx.type === "swap" && tx.toToken ? ` → ${tx.toToken}` : ""}
         </p>
         <p className="truncate text-xs text-[var(--dw-muted)]">
-          {tx.counterparty} · {timeAgo(tx.timestamp)}
+          {tx.counterparty} · {timeAgo(tx.timestamp, t)}
         </p>
       </div>
       <div className="text-right">
@@ -55,10 +57,10 @@ export function TxRow({ tx }: { tx: Tx }) {
         {tx.valueUsd != null ? (
           <p className="text-[11px] tabular-nums text-[var(--dw-muted)]">
             ≈ {tx.valueUsd < 0.01 ? "<$0.01" : `$${tx.valueUsd.toLocaleString("en-US", { maximumFractionDigits: 2 })}`}
-            <span className={`ml-1.5 ${s.cls}`}>{s.label}</span>
+            <span className={`ml-1.5 ${s.cls}`}>{t(s.labelKey)}</span>
           </p>
         ) : (
-          <p className={`text-[11px] ${s.cls}`}>{s.label}</p>
+          <p className={`text-[11px] ${s.cls}`}>{t(s.labelKey)}</p>
         )}
       </div>
     </div>

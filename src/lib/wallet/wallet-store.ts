@@ -67,6 +67,7 @@ type WalletCtx = WalletState & {
   revealMnemonic: (pin: string) => Promise<string | null>;
   changePin: (oldPin: string, newPin: string) => Promise<boolean>;
   addAccount: (pin: string) => Promise<{ ok: boolean; address?: string; reason?: string }>;
+  createAccount: (pin: string) => Promise<{ ok: boolean; address?: string; reason?: string }>;
   importAccount: (pin: string, privateKey: string) => Promise<{ ok: boolean; address?: string; reason?: string }>;
   switchAccount: (index: number) => void;
   renameAccount: (index: number, name: string) => void;
@@ -174,6 +175,20 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const accounts = [...cur.accounts, { name: `บัญชี ${cur.accounts.length + 1}`, address, index: hdIndex }];
     persist({ accounts, activeIndex: accounts.length - 1 });
     return { ok: true, address };
+  }, [persist]);
+
+  // สร้างบัญชี/กระเป๋าใหม่ด้วยกุญแจสุ่ม (ของตัวเอง) — ใช้ได้แม้กระเป๋าเป็นแบบนำเข้า (ไม่มี seed)
+  const createAccount = useCallback(async (pin: string) => {
+    const cur = load();
+    if (!cur.created) return { ok: false, reason: "no-wallet" };
+    if (cur.accounts.length >= MAX_ACCOUNTS) return { ok: false, reason: "max" };
+    const vb = cur.enc ?? cur.accounts.find((a) => a.enc)?.enc ?? null;
+    if (!vb || !(await verifyPin(vb, pin))) return { ok: false, reason: "pin" };
+    const w = Wallet.createRandom();
+    const enc = await encryptWithPin(w.privateKey, pin);
+    const accounts = [...cur.accounts, { name: `บัญชี ${cur.accounts.length + 1}`, address: w.address, enc }];
+    persist({ accounts, activeIndex: accounts.length - 1 });
+    return { ok: true, address: w.address };
   }, [persist]);
 
   const importAccount = useCallback(async (pin: string, privateKey: string) => {
@@ -328,7 +343,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     address: state.accounts[state.activeIndex]?.address ?? null,
     hasSeed: state.enc != null,
     createWallet, createWalletFromKey, unlock, lock, reset, toggleBalance, setPref, revealMnemonic, changePin,
-    addAccount, importAccount, switchAccount, renameAccount, removeAccount, getActivePrivateKey, revealPrivateKey,
+    addAccount, createAccount, importAccount, switchAccount, renameAccount, removeAccount, getActivePrivateKey, revealPrivateKey,
   };
 
   return React.createElement(Ctx.Provider, { value }, children);

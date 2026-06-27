@@ -11,11 +11,13 @@ import { WORDLIST } from "@/lib/wallet/wordlist";
 import { Mnemonic, Wallet } from "ethers";
 import { Warn, Check } from "@/components/wallet/Icons";
 import { shortAddress } from "@/lib/wallet/format";
+import { useI18n } from "@/lib/wallet/i18n";
 
 const SET = new Set(WORDLIST);
 
 export default function ImportWallet() {
   const router = useRouter();
+  const { t: tr } = useI18n();
   const { createWallet, createWalletFromKey } = useWallet();
   const [tab, setTab] = React.useState<"seed" | "key">("seed");
   const [count, setCount] = React.useState<12 | 24>(12);
@@ -98,7 +100,7 @@ export default function ImportWallet() {
   return (
     <>
       <TopBar
-        title="นำเข้ากระเป๋า"
+        title={tr("import.title")}
         onBack={() => (mode === "pin" ? setMode("input") : router.back())}
       />
       <Screen>
@@ -106,7 +108,7 @@ export default function ImportWallet() {
           <div className="dw-rise" onPaste={tab === "seed" ? onPaste : undefined}>
             <div className="dw-glass mb-4 flex items-start gap-2.5 rounded-2xl border-[var(--dw-amber)]/30 bg-[var(--dw-amber)]/[0.06] p-3.5 text-sm text-[var(--dw-muted)]">
               <Warn size={18} className="mt-0.5 shrink-0 text-[var(--dw-amber)]" />
-              นำเข้าเฉพาะในแอปที่คุณไว้ใจ — เดโมนี้ไม่ส่งข้อมูลออกนอกเครื่อง
+              {tr("import.trustNote")}
             </div>
 
             {/* สลับ วลีกู้คืน / Private Key */}
@@ -119,7 +121,7 @@ export default function ImportWallet() {
                     tab === t ? "dw-btn-primary" : "text-[var(--dw-muted)]"
                   }`}
                 >
-                  {t === "seed" ? "วลีกู้คืน" : "Private Key"}
+                  {t === "seed" ? tr("settings.recovery") : "Private Key"}
                 </button>
               ))}
             </div>
@@ -136,7 +138,7 @@ export default function ImportWallet() {
                         count === c ? "dw-btn-primary" : "text-[var(--dw-muted)]"
                       }`}
                     >
-                      {c} คำ
+                      {c} {tr("import.wordsSuffix")}
                     </button>
                   ))}
                 </div>
@@ -144,14 +146,14 @@ export default function ImportWallet() {
                 <SeedImportGrid count={count} words={words} onChange={setWords} />
 
                 <div className="mt-3 flex items-center justify-between text-xs text-[var(--dw-muted)]">
-                  <span>กรอกแล้ว {filled}/{count} คำ</span>
+                  <span>{tr("import.filledPre")} {filled}/{count} {tr("import.wordsSuffix")}</span>
                   {allValid ? (
                     <span className="flex items-center gap-1 text-[var(--dw-green)]">
-                      <Check size={14} /> วลีถูกต้อง (checksum ผ่าน)
+                      <Check size={14} /> {tr("import.seedValid")}
                     </span>
                   ) : allWords ? (
                     <span className="flex items-center gap-1 text-[var(--dw-rose)]">
-                      <Warn size={13} /> checksum ไม่ผ่าน
+                      <Warn size={13} /> {tr("import.checksumFail")}
                     </span>
                   ) : null}
                 </div>
@@ -162,15 +164,15 @@ export default function ImportWallet() {
                   value={pk}
                   onChange={(e) => { setPk(e.target.value); setImportErr(false); }}
                   rows={3}
-                  placeholder="วาง Private Key (0x… 64 ตัวอักษร)"
+                  placeholder={tr("import.pkPlaceholder")}
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="dw-glass w-full resize-none rounded-2xl px-4 py-3 font-mono text-sm outline-none placeholder:text-white/25 focus:border-[var(--dw-cyan)]/50"
+                  className="dw-glass w-full resize-none rounded-2xl px-4 py-3 font-mono text-sm outline-none placeholder:text-[var(--dw-muted)] focus:border-[var(--dw-cyan)]/50"
                   style={{ color: "var(--dw-text)" }}
                 />
                 <div className="mt-2 flex items-center justify-between px-1 text-xs">
-                  <span className="text-[var(--dw-muted)]">บัญชีนี้จะไม่มีวลีกู้คืน (สำรอง key เอง)</span>
+                  <span className="text-[var(--dw-muted)]">{tr("import.noSeedNote")}</span>
                   {pk.trim() &&
                     (pkValid ? (
                       <span className="flex items-center gap-1 text-[var(--dw-green)]">
@@ -178,7 +180,7 @@ export default function ImportWallet() {
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-[var(--dw-rose)]">
-                        <Warn size={13} /> key ไม่ถูกต้อง
+                        <Warn size={13} /> {tr("import.keyInvalid")}
                       </span>
                     ))}
                 </div>
@@ -187,7 +189,7 @@ export default function ImportWallet() {
 
             {importErr && (
               <p className="mt-2 flex items-center gap-1 text-xs text-[var(--dw-rose)]">
-                <Warn size={13} /> {tab === "seed" ? "วลีกู้คืนไม่ถูกต้อง ลองตรวจลำดับคำอีกครั้ง" : "Private Key ไม่ถูกต้อง"}
+                <Warn size={13} /> {tab === "seed" ? tr("import.seedInvalid") : tr("import.pkInvalid")}
               </p>
             )}
 
@@ -196,18 +198,16 @@ export default function ImportWallet() {
               disabled={!canNext}
               className="dw-btn-primary mt-4 w-full rounded-2xl py-4 font-semibold"
             >
-              ถัดไป — ตั้ง PIN
+              {tr("import.nextSetPin")}
             </button>
             <p className="mt-3 text-center text-[11px] text-[var(--dw-muted)]">
-              {tab === "seed"
-                ? "ต้องเป็นวลี BIP39 จริงที่ checksum ถูกต้อง · วางทั้งวลีได้ในครั้งเดียว"
-                : "นำเข้าด้วย private key (32 ไบต์ / 64 hex) · ที่อยู่จะคำนวณให้อัตโนมัติ"}
+              {tab === "seed" ? tr("import.seedHint") : tr("import.pkHint")}
             </p>
           </div>
         ) : (
           <div className="dw-rise flex flex-col items-center pt-6">
-            <h2 className="text-lg font-semibold">ตั้งรหัส PIN 6 หลัก</h2>
-            <p className="mt-1 text-sm text-[var(--dw-muted)]">เพื่อปกป้องกระเป๋าในเครื่องนี้</p>
+            <h2 className="text-lg font-semibold">{tr("create.setPin")}</h2>
+            <p className="mt-1 text-sm text-[var(--dw-muted)]">{tr("import.pinDesc2")}</p>
             <div className="my-7">
               <PinDots length={6} filled={pin.length} />
             </div>

@@ -4,8 +4,10 @@
 // ถ้าเว็บบล็อกการฝัง (X-Frame-Options/CSP) → แสดง fallback "เปิดในแท็บใหม่" แทนจอว่าง
 import React from "react";
 import { ChevronLeft, Globe, Warn, Check, Copy } from "./Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
 export function DappBrowser({ url, onClose }: { url: string; onClose: () => void }) {
+  const { t } = useI18n();
   const [warn, setWarn] = React.useState(true);
   const [nonce, setNonce] = React.useState(0); // สำหรับ reload
   const [copied, setCopied] = React.useState(false);
@@ -59,10 +61,10 @@ export function DappBrowser({ url, onClose }: { url: string; onClose: () => void
   };
 
   return (
-    <div className="absolute inset-0 z-[60] flex flex-col" style={{ background: "#070b14" }}>
+    <div className="absolute inset-0 z-[60] flex flex-col" style={{ background: "var(--dw-bg)" }}>
       {/* แถบบนแบบเบราว์เซอร์ */}
-      <div className="dw-glass-strong flex items-center gap-2 border-b border-white/10 px-3 pt-5 pb-2.5">
-        <button onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[var(--dw-muted)] hover:text-white" aria-label="ปิด">
+      <div className="dw-glass-strong flex items-center gap-2 border-b border-[var(--dw-border)] px-3 pt-5 pb-2.5">
+        <button onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[var(--dw-muted)] hover:text-[var(--dw-text)]" aria-label={t("common.close")}>
           <ChevronLeft size={20} />
         </button>
         <button
@@ -80,8 +82,8 @@ export function DappBrowser({ url, onClose }: { url: string; onClose: () => void
         </button>
         <button
           onClick={() => setNonce((n) => n + 1)}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[var(--dw-muted)] hover:text-white"
-          aria-label="โหลดใหม่"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[var(--dw-muted)] hover:text-[var(--dw-text)]"
+          aria-label={t("dapp.reload")}
         >
           ⟳
         </button>
@@ -89,8 +91,8 @@ export function DappBrowser({ url, onClose }: { url: string; onClose: () => void
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[var(--dw-muted)] hover:text-white"
-          aria-label="เปิดในแท็บใหม่"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[var(--dw-muted)] hover:text-[var(--dw-text)]"
+          aria-label={t("dapp.openNewTab")}
         >
           <Globe size={17} />
         </a>
@@ -101,7 +103,7 @@ export function DappBrowser({ url, onClose }: { url: string; onClose: () => void
         <div className="flex items-start gap-2 bg-[var(--dw-amber)]/15 px-4 py-2.5 text-xs text-[var(--dw-amber)]">
           <Warn size={15} className="mt-0.5 shrink-0" />
           <p className="flex-1">
-            ตรวจสอบให้แน่ใจว่าคุณอยู่ที่ <span className="font-semibold">https://{host}/</span> — เช็ก URL ทุกตัวอักษรก่อนเชื่อมกระเป๋า
+            {t("dapp.verifyUrlPre")} <span className="font-semibold">https://{host}/</span> {t("dapp.verifyUrlSuf")}
           </p>
           <button onClick={() => setWarn(false)} className="shrink-0 px-1">✕</button>
         </div>
@@ -111,7 +113,7 @@ export function DappBrowser({ url, onClose }: { url: string; onClose: () => void
       {status === "checking" && (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
           <div className="dw-shimmer h-10 w-10 rounded-full" />
-          <p className="text-sm text-[var(--dw-muted)]">กำลังเปิด {host}…</p>
+          <p className="text-sm text-[var(--dw-muted)]">{t("dapp.openingPre")} {host}…</p>
         </div>
       )}
 
@@ -124,7 +126,7 @@ export function DappBrowser({ url, onClose }: { url: string; onClose: () => void
           <div>
             <p className="font-semibold">{host}</p>
             <p className="mt-1.5 text-sm leading-relaxed text-[var(--dw-muted)]">
-              เว็บนี้ไม่อนุญาตให้แสดงภายในแอป (ป้องกันการฝังเพื่อความปลอดภัย) — เปิดในเบราว์เซอร์เพื่อใช้งานได้เต็มที่
+              {t("dapp.cantEmbed")}
             </p>
           </div>
           <a
@@ -133,14 +135,14 @@ export function DappBrowser({ url, onClose }: { url: string; onClose: () => void
             rel="noopener noreferrer"
             className="dw-btn-primary flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 font-semibold"
           >
-            <Globe size={18} /> เปิดในแท็บใหม่
+            <Globe size={18} /> {t("dapp.openNewTab")}
           </a>
           <button
             onClick={copyUrl}
             className="dw-btn-ghost flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm"
           >
             {copied ? <Check size={15} className="text-[var(--dw-green)]" /> : <Copy size={15} />}
-            {copied ? "คัดลอกลิงก์แล้ว" : "คัดลอกลิงก์"}
+            {copied ? t("dapp.copiedLink") : t("dapp.copyLink")}
           </button>
         </div>
       )}

@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/lib/wallet/wallet-store";
+import { useTxAlerts } from "@/lib/wallet/use-tx-alerts";
 import { Screen } from "@/components/wallet/PhoneShell";
 import { BottomNav } from "@/components/wallet/BottomNav";
 import { BalanceCard } from "@/components/wallet/BalanceCard";
@@ -13,8 +14,12 @@ import { SecurityBadge } from "@/components/wallet/SecurityBadge";
 import { CHAIN } from "@/lib/wallet/mock-data";
 import { AccountSwitcher } from "@/components/wallet/AccountSwitcher";
 import { formatUsd, formatToken } from "@/lib/wallet/format";
+import { useI18n } from "@/lib/wallet/i18n";
 import { ArrowUp, ArrowDown, Swap, Card, Bell, Globe, ChevronRight, Warn } from "@/components/wallet/Icons";
 import type { Holding } from "@/app/api/danny/portfolio/route";
+import type { DannyToken } from "@/app/api/danny/tokens/route";
+
+const HOME_PIN_KEY = "dw-home-tokens"; // เหรียญที่ปักหมุดจากหน้า Explore ให้ขึ้นหน้าหลักแม้ยอด 0
 
 const PALETTE: [string, string][] = [
   ["#7c3aed", "#22d3ee"], ["#22d3ee", "#34d399"], ["#f59e0b", "#f43f5e"],
@@ -43,6 +48,7 @@ type Portfolio = {
 };
 
 function HoldingRow({ h, hidden }: { h: Holding; hidden: boolean }) {
+  const { t } = useI18n();
   const g = gradientFor(h.address || h.symbol);
   const up = (h.change24h ?? 0) >= 0;
   return (
@@ -55,17 +61,17 @@ function HoldingRow({ h, hidden }: { h: Holding; hidden: boolean }) {
           <p className="truncate font-semibold">{h.symbol}</p>
           {h.isNative && (
             <span className="rounded-full bg-[var(--dw-violet)]/20 px-1.5 py-0.5 text-[9px] text-[var(--dw-purple)]">
-              เนทีฟ
+              {t("common.native")}
             </span>
           )}
           {h.spam && (
             <span className="rounded-full bg-[var(--dw-rose)]/15 px-1.5 py-0.5 text-[9px] text-[var(--dw-rose)]">
-              สแปม
+              {t("common.spam")}
             </span>
           )}
         </div>
         <p className="text-xs text-[var(--dw-muted)]">
-          {h.priceUsd != null ? fmtPrice(h.priceUsd) : "ไม่มีราคา"}
+          {h.priceUsd != null ? fmtPrice(h.priceUsd) : t("common.noPrice")}
         </p>
       </div>
       <div className="text-right">
@@ -89,11 +95,40 @@ function HoldingRow({ h, hidden }: { h: Holding; hidden: boolean }) {
 
 export default function Home() {
   const router = useRouter();
+  const { t } = useI18n();
   const { hydrated, created, locked, balanceHidden, toggleBalance, address, accounts, activeIndex } = useWallet();
   const [pf, setPf] = React.useState<Portfolio | null>(null);
   const [state, setState] = React.useState<"loading" | "ok" | "error">("loading");
   const [switcher, setSwitcher] = React.useState(false);
   const [showHidden, setShowHidden] = React.useState(false);
+  // แจ้งเตือนธุรกรรม (กระดิ่ง) — badge + toast
+  const { unread, toast, dismissToast, markSeen } = useTxAlerts(address);
+  const openNotifications = () => { markSeen(); router.push("/wallet/activity"); };
+  // เหรียญที่ผู้ใช้ปักหมุดจากหน้า Explore → แสดงบนหน้าหลักแม้ยอด = 0
+  const [pinnedSet, setPinnedSet] = React.useState<Set<string>>(new Set());
+  const [pinTokens, setPinTokens] = React.useState<DannyToken[]>([]);
+
+  React.useEffect(() => {
+    try {
+      const arr = JSON.parse(localStorage.getItem(HOME_PIN_KEY) || "[]");
+      if (Array.isArray(arr)) setPinnedSet(new Set(arr.map((a) => String(a).toLowerCase())));
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (pinnedSet.size === 0) {
+      setPinTokens([]);
+      return;
+    }
+    fetch("/api/danny/tokens")
+      .then((r) => r.json())
+      .then((j: { tokens?: DannyToken[] }) =>
+        setPinTokens((j.tokens || []).filter((t) => pinnedSet.has(t.address.toLowerCase())))
+      )
+      .catch(() => {});
+  }, [pinnedSet]);
 
   React.useEffect(() => {
     if (!hydrated) return;
@@ -129,7 +164,7 @@ export default function Home() {
   if (!hydrated || !created || locked) {
     return (
       <Screen className="flex items-center justify-center">
-        <div className="text-sm text-[var(--dw-muted)]">กำลังโหลด…</div>
+        <div className="text-sm text-[var(--dw-muted)]">{t("common.loading")}</div>
       </Screen>
     );
   }
@@ -139,16 +174,25 @@ export default function Home() {
       {/* header */}
       <div className="relative z-10 flex items-center justify-between px-5 pb-1 pt-6">
         <div>
-          <p className="text-xs text-[var(--dw-muted)]">เครือข่าย</p>
+          <p className="text-xs text-[var(--dw-muted)]">{t("common.network")}</p>
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-[var(--dw-green)] dw-pulse-ring" />
             <span className="text-sm font-semibold">{CHAIN.name}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <SecurityBadge label="ข้อมูลจริง" />
-          <button className="dw-btn-ghost grid h-9 w-9 place-items-center rounded-full text-[var(--dw-muted)]">
+          <SecurityBadge label={t("common.liveData")} />
+          <button
+            onClick={openNotifications}
+            aria-label={t("settings.notifications")}
+            className="dw-btn-ghost relative grid h-9 w-9 place-items-center rounded-full text-[var(--dw-muted)] hover:text-[var(--dw-text)]"
+          >
             <Bell size={18} />
+            {unread > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--dw-rose)] px-1 text-[9px] font-bold text-white">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -166,17 +210,17 @@ export default function Home() {
 
         {/* ปุ่มลัด */}
         <div className="mt-5 flex gap-2">
-          <ActionButton href="/wallet/send" label="ส่ง"><ArrowUp size={22} /></ActionButton>
-          <ActionButton href="/wallet/receive" label="รับ"><ArrowDown size={22} /></ActionButton>
-          <ActionButton href="/wallet/swap" label="สลับ"><Swap size={22} /></ActionButton>
-          <ActionButton href="/wallet/tokens" label="สำรวจ"><Card size={22} /></ActionButton>
+          <ActionButton href="/wallet/send" label={t("common.send")}><ArrowUp size={22} /></ActionButton>
+          <ActionButton href="/wallet/receive" label={t("common.receive")}><ArrowDown size={22} /></ActionButton>
+          <ActionButton href="/wallet/swap" label={t("common.swap")}><Swap size={22} /></ActionButton>
+          <ActionButton href="/wallet/tokens" label={t("common.explore")}><Card size={22} /></ActionButton>
         </div>
 
         {/* รายการเหรียญจริง */}
         <div className="mt-6 flex items-center justify-between">
-          <h2 className="font-semibold">สินทรัพย์ของฉัน</h2>
+          <h2 className="font-semibold">{t("home.myAssets")}</h2>
           <span className="text-xs text-[var(--dw-muted)]">
-            {state === "ok" ? `${pf?.count ?? 0} เหรียญ` : ""}
+            {state === "ok" ? `${pf?.count ?? 0} ${t("home.coinsSuffix")}` : ""}
           </span>
         </div>
 
@@ -191,20 +235,36 @@ export default function Home() {
         {state === "error" && (
           <div className="mt-3 flex flex-col items-center gap-3 py-10 text-center">
             <Warn size={30} className="text-[var(--dw-rose)]" />
-            <p className="text-sm text-[var(--dw-muted)]">โหลดพอร์ตจากเชนไม่สำเร็จ</p>
+            <p className="text-sm text-[var(--dw-muted)]">{t("home.loadFailed")}</p>
             <button onClick={load} className="dw-btn-primary rounded-xl px-5 py-2.5 text-sm font-semibold">
-              ลองใหม่
+              {t("common.retry")}
             </button>
           </div>
         )}
 
         {state === "ok" && pf && (() => {
-          const visible = pf.holdings.filter((h) => !h.spam);
+          const held = pf.holdings.filter((h) => !h.spam);
+          const heldAddrs = new Set(pf.holdings.map((h) => (h.address || "").toLowerCase()));
+          // เหรียญที่ปักหมุดแต่ยังไม่ได้ถือ → แสดงเป็นแถวยอด 0 (ดึงราคา/โลโก้จาก tokens API)
+          const extra: Holding[] = pinTokens
+            .filter((t) => !heldAddrs.has(t.address.toLowerCase()))
+            .map((t) => ({
+              address: t.address,
+              symbol: t.symbol,
+              name: (t as { name?: string }).name ?? t.symbol,
+              balance: 0,
+              priceUsd: t.priceUsd,
+              valueUsd: 0,
+              change24h: t.change24h,
+              logo: t.logo,
+              isNative: false,
+            }));
+          const visible = [...held, ...extra];
           const hiddenList = pf.holdings.filter((h) => h.spam);
           return (
             <div className="mt-3 space-y-2.5">
               {visible.length === 0 && hiddenList.length === 0 ? (
-                <p className="py-8 text-center text-sm text-[var(--dw-muted)]">ที่อยู่นี้ยังไม่มีสินทรัพย์</p>
+                <p className="py-8 text-center text-sm text-[var(--dw-muted)]">{t("home.noAssets")}</p>
               ) : (
                 <>
                   {visible.map((h) => (
@@ -217,7 +277,7 @@ export default function Home() {
                         onClick={() => setShowHidden((v) => !v)}
                         className="dw-btn-ghost flex w-full items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs text-[var(--dw-muted)]"
                       >
-                        {showHidden ? "ซ่อนเหรียญสแปม" : `แสดงเหรียญที่ซ่อน (${hiddenList.length})`}
+                        {showHidden ? t("home.hideSpam") : `${t("home.showHidden")} (${hiddenList.length})`}
                         <ChevronRight
                           size={14}
                           className={`transition-transform ${showHidden ? "rotate-90" : ""}`}
@@ -243,17 +303,37 @@ export default function Home() {
             <span className="grid h-7 w-7 place-items-center rounded-lg bg-[var(--dw-cyan)]/15 text-[var(--dw-cyan)]">
               <Globe size={16} />
             </span>
-            สำรวจโทเคนทั้งหมดบนเชน
+            {t("home.exploreAll")}
           </span>
           <ChevronRight size={18} className="text-[var(--dw-muted)]" />
         </Link>
 
         <p className="mt-5 text-center text-[11px] text-[var(--dw-muted)]">
-          พอร์ตจริงของ {address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "—"} · ยอดจาก dannyscan, ราคาจาก dancharts
+          {t("home.portfolioOf")} {address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "—"} {t("home.sourceNote")}
         </p>
       </Screen>
 
       <AccountSwitcher open={switcher} onClose={() => setSwitcher(false)} />
+
+      {/* toast แจ้งเตือนธุรกรรมใหม่ */}
+      {toast && (
+        <button
+          onClick={() => { dismissToast(); openNotifications(); }}
+          className="dw-glass-strong dw-rise fixed inset-x-4 bottom-24 z-[3500] mx-auto flex max-w-sm items-center gap-3 rounded-2xl border border-[var(--dw-border)] p-4 text-left shadow-2xl"
+          style={{ background: "var(--dw-popover)" }}
+        >
+          <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${toast.type === "receive" ? "bg-[var(--dw-green)]/15 text-[var(--dw-green)]" : toast.type === "swap" ? "bg-[var(--dw-violet)]/15 text-[var(--dw-cyan)]" : "bg-white/[0.06] text-[var(--dw-muted)]"}`}>
+            {toast.type === "swap" ? <Swap size={18} /> : toast.type === "receive" ? <ArrowDown size={18} /> : <ArrowUp size={18} />}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">{t("tx.newTx")}</span>
+            <span className="block truncate text-xs text-[var(--dw-muted)]">
+              {toast.type === "swap" ? `${t("common.swap")} ${toast.token} → ${toast.toToken ?? ""}` : toast.type === "receive" ? `${t("common.receive")} ${formatToken(toast.amount)} ${toast.token}` : `${t("common.send")} ${formatToken(toast.amount)} ${toast.token}`}
+            </span>
+          </span>
+        </button>
+      )}
+
       <BottomNav />
     </>
   );

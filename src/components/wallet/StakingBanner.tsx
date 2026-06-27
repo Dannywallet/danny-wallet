@@ -4,8 +4,10 @@
 import React from "react";
 import Link from "next/link";
 import { ChevronRight } from "./Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
 export function StakingBanner() {
+  const { t } = useI18n();
   const uid = React.useId();
   const ring = `stk-ring-${uid}`;
   const coin = `stk-coin-${uid}`;
@@ -33,13 +35,13 @@ export function StakingBanner() {
             ✦ STAKING
           </span>
           <h3 className="mt-2 text-lg font-bold leading-snug">
-            สเตก <span className="dw-text-grad">DAN</span> รับรางวัลทุกวัน
+            {t("banner.stakePre")} <span className="dw-text-grad">DAN</span> {t("banner.stakeSuf")}
           </h3>
           <p className="mt-1 text-xs text-[var(--dw-muted)]">
-            ผลตอบแทนสูงสุด <span className="font-semibold text-[var(--dw-green)]">~18.2% APY</span> · ถอนได้ทุกเมื่อ
+            {t("banner.stakeApyPre")} <span className="font-semibold text-[var(--dw-green)]">~18.2% APY</span> {t("banner.stakeApySuf")}
           </p>
           <span className="dw-btn-primary mt-3 inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-semibold">
-            เริ่มสเตก <ChevronRight size={14} />
+            {t("banner.startStake")} <ChevronRight size={14} />
           </span>
         </div>
 

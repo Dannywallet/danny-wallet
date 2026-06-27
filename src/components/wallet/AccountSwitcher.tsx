@@ -7,6 +7,7 @@ import { useWallet } from "@/lib/wallet/wallet-store";
 import { shortAddress } from "@/lib/wallet/format";
 import { copyEphemeral } from "@/lib/wallet/clipboard";
 import { Check, Plus, Warn, Copy } from "./Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
 function gradient(addr: string): string {
   let h = 0;
@@ -17,8 +18,9 @@ function gradient(addr: string): string {
 }
 
 export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { accounts, activeIndex, switchAccount, renameAccount, addAccount, importAccount, removeAccount, revealPrivateKey, hasSeed } = useWallet();
-  const [mode, setMode] = React.useState<"list" | "add" | "import" | "export">("list");
+  const { t } = useI18n();
+  const { accounts, activeIndex, switchAccount, renameAccount, addAccount, createAccount, importAccount, removeAccount, revealPrivateKey, hasSeed } = useWallet();
+  const [mode, setMode] = React.useState<"list" | "add" | "create" | "import" | "export">("list");
   const [exportIdx, setExportIdx] = React.useState(0);
   const [exportKey, setExportKey] = React.useState<string | null>(null);
   const [pin, setPin] = React.useState("");
@@ -62,19 +64,28 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
     const k = await revealPrivateKey(exportIdx, pin);
     setBusy(false);
     if (k) { setExportKey(k); setPin(""); }
-    else setErr("PIN ไม่ถูกต้อง");
+    else setErr(t("tx.pinWrong"));
   };
 
   const reasonMsg = (r?: string) =>
-    r === "max" ? "ครบจำนวนบัญชีสูงสุดแล้ว (100)"
-    : r === "invalid-key" ? "Private Key ไม่ถูกต้อง"
-    : r === "exists" ? "บัญชีนี้มีอยู่แล้ว"
-    : "PIN ไม่ถูกต้อง";
+    r === "max" ? t("acct.maxReached100")
+    : r === "invalid-key" ? t("import.pkInvalid")
+    : r === "exists" ? t("acct.exists")
+    : t("tx.pinWrong");
 
   const doAdd = async () => {
     setErr(null);
     setBusy(true);
     const res = await addAccount(pin);
+    setBusy(false);
+    if (res.ok) { setMode("list"); setPin(""); }
+    else setErr(reasonMsg(res.reason));
+  };
+
+  const doCreate = async () => {
+    setErr(null);
+    setBusy(true);
+    const res = await createAccount(pin);
     setBusy(false);
     if (res.ok) { setMode("list"); setPin(""); }
     else setErr(reasonMsg(res.reason));
@@ -90,12 +101,12 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
   };
 
   return (
-    <Sheet open={open} onClose={close} title="บัญชีของฉัน">
-      {mode === "add" ? (
+    <Sheet open={open} onClose={close} title={t("acct.myAccounts")}>
+      {mode === "add" || mode === "create" ? (
         <div>
           <div className="dw-glass mb-4 flex items-start gap-2.5 rounded-2xl p-4 text-sm text-[var(--dw-muted)]">
-            <Warn size={18} className="mt-0.5 shrink-0 text-[var(--dw-green)]" />
-            บัญชีใหม่สร้างจาก seed เดิม (BIP44) — ใส่ PIN เพื่อยืนยัน
+            <Warn size={18} className={`mt-0.5 shrink-0 ${mode === "create" ? "text-[var(--dw-amber)]" : "text-[var(--dw-green)]"}`} />
+            {mode === "create" ? t("acct.createWalletNote") : t("acct.newFromSeed")}
           </div>
           <input
             type="password"
@@ -103,8 +114,8 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
             maxLength={6}
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-            onKeyDown={(e) => e.key === "Enter" && pin.length === 6 && doAdd()}
-            placeholder="ใส่ PIN 6 หลัก"
+            onKeyDown={(e) => e.key === "Enter" && pin.length === 6 && (mode === "create" ? doCreate() : doAdd())}
+            placeholder={t("tx.enterPin")}
             className="dw-glass w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
             style={{ color: "var(--dw-text)" }}
           />
@@ -114,9 +125,9 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
             </p>
           )}
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <button onClick={() => { setMode("list"); setErr(null); setPin(""); }} className="dw-btn-ghost rounded-2xl py-3 font-semibold">ยกเลิก</button>
-            <button onClick={doAdd} disabled={pin.length < 6 || busy} className="dw-btn-primary rounded-2xl py-3 font-semibold">
-              {busy ? "กำลังสร้าง…" : "สร้างบัญชี"}
+            <button onClick={() => { setMode("list"); setErr(null); setPin(""); }} className="dw-btn-ghost rounded-2xl py-3 font-semibold">{t("common.cancel")}</button>
+            <button onClick={mode === "create" ? doCreate : doAdd} disabled={pin.length < 6 || busy} className="dw-btn-primary rounded-2xl py-3 font-semibold">
+              {busy ? t("acct.creating") : t("acct.createAccount")}
             </button>
           </div>
         </div>
@@ -124,14 +135,14 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
         <div>
           <div className="dw-glass mb-3 flex items-start gap-2.5 rounded-2xl border-[var(--dw-amber)]/30 bg-[var(--dw-amber)]/[0.06] p-3.5 text-xs text-[var(--dw-muted)]">
             <Warn size={16} className="mt-0.5 shrink-0 text-[var(--dw-amber)]" />
-            บัญชีนำเข้าใช้ private key ของตัวเอง (ไม่ได้มาจาก seed) — สำรอง seed อย่างเดียวจะไม่ครอบคลุมบัญชีนี้
+            {t("acct.importNote")}
           </div>
           <textarea
             value={pk}
             onChange={(e) => setPk(e.target.value)}
             rows={3}
-            placeholder="วาง Private Key (0x...)"
-            className="dw-glass w-full resize-none rounded-2xl px-4 py-3 font-mono text-sm outline-none placeholder:text-white/25 focus:border-[var(--dw-cyan)]/50"
+            placeholder={t("acct.pkPlaceholder")}
+            className="dw-glass w-full resize-none rounded-2xl px-4 py-3 font-mono text-sm outline-none placeholder:text-[var(--dw-muted)] focus:border-[var(--dw-cyan)]/50"
             style={{ color: "var(--dw-text)" }}
           />
           <input
@@ -140,7 +151,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
             maxLength={6}
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-            placeholder="ใส่ PIN 6 หลัก"
+            placeholder={t("tx.enterPin")}
             className="dw-glass mt-3 w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
             style={{ color: "var(--dw-text)" }}
           />
@@ -150,9 +161,9 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
             </p>
           )}
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <button onClick={() => { setMode("list"); setErr(null); setPin(""); setPk(""); }} className="dw-btn-ghost rounded-2xl py-3 font-semibold">ยกเลิก</button>
+            <button onClick={() => { setMode("list"); setErr(null); setPin(""); setPk(""); }} className="dw-btn-ghost rounded-2xl py-3 font-semibold">{t("common.cancel")}</button>
             <button onClick={doImport} disabled={pk.trim().length < 60 || pin.length < 6 || busy} className="dw-btn-primary rounded-2xl py-3 font-semibold">
-              {busy ? "กำลังนำเข้า…" : "นำเข้า"}
+              {busy ? t("acct.importing") : t("acct.import")}
             </button>
           </div>
         </div>
@@ -160,7 +171,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
         <div>
           <div className="dw-glass mb-3 flex items-start gap-2.5 rounded-2xl border-[var(--dw-rose)]/30 bg-[var(--dw-rose)]/[0.06] p-3.5 text-xs text-[var(--dw-muted)]">
             <Warn size={16} className="mt-0.5 shrink-0 text-[var(--dw-rose)]" />
-            ใครได้ private key นี้ควบคุมเงินในบัญชี <span className="font-semibold text-white">{accounts[exportIdx]?.name}</span> ได้ทั้งหมด — อย่าแชร์/ถ่ายรูป
+            {t("acct.exportWarnPre")} <span className="font-semibold text-[var(--dw-text)]">{accounts[exportIdx]?.name}</span> {t("acct.exportWarnSuf")}
           </div>
           {!exportKey ? (
             <>
@@ -171,7 +182,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                 onKeyDown={(e) => e.key === "Enter" && pin.length === 6 && doExport()}
-                placeholder="ใส่ PIN 6 หลัก"
+                placeholder={t("tx.enterPin")}
                 className="dw-glass w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
                 style={{ color: "var(--dw-text)" }}
               />
@@ -181,9 +192,9 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
                 </p>
               )}
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <button onClick={() => { setMode("list"); setErr(null); setPin(""); }} className="dw-btn-ghost rounded-2xl py-3 font-semibold">ยกเลิก</button>
+                <button onClick={() => { setMode("list"); setErr(null); setPin(""); }} className="dw-btn-ghost rounded-2xl py-3 font-semibold">{t("common.cancel")}</button>
                 <button onClick={doExport} disabled={pin.length < 6 || busy} className="dw-btn-primary rounded-2xl py-3 font-semibold">
-                  {busy ? "กำลังเผย…" : "เผยกุญแจ"}
+                  {busy ? t("acct.revealing") : t("acct.revealKey")}
                 </button>
               </div>
             </>
@@ -200,10 +211,10 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
                 className="dw-btn-ghost mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm"
               >
                 {copied === exportKey ? <Check size={15} className="text-[var(--dw-green)]" /> : <Copy size={15} />}
-                {copied === exportKey ? "คัดลอกแล้ว (ล้างใน 30 วิ)" : "คัดลอกกุญแจ"}
+                {copied === exportKey ? t("acct.copiedClear") : t("acct.copyKey")}
               </button>
               <button onClick={() => { setMode("list"); setExportKey(null); }} className="dw-btn-primary mt-3 w-full rounded-2xl py-3 font-semibold">
-                เสร็จสิ้น
+                {t("common.done")}
               </button>
             </>
           )}
@@ -240,7 +251,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
                       <p className="flex items-center gap-1.5 truncate text-sm font-medium">
                         {a.name}
                         {a.enc && (
-                          <span className="rounded bg-[var(--dw-amber)]/20 px-1 text-[9px] text-[var(--dw-amber)]">นำเข้า</span>
+                          <span className="rounded bg-[var(--dw-amber)]/20 px-1 text-[9px] text-[var(--dw-amber)]">{t("acct.importedTag")}</span>
                         )}
                       </p>
                     )}
@@ -248,52 +259,60 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
                   </div>
                 </button>
                 {i === activeIndex && <Check size={16} className="shrink-0 text-[var(--dw-cyan)]" />}
-                <button onClick={() => copyAddr(a.address)} className="shrink-0 text-[var(--dw-muted)] hover:text-white" aria-label="คัดลอกที่อยู่">
+                <button onClick={() => copyAddr(a.address)} className="shrink-0 text-[var(--dw-muted)] hover:text-[var(--dw-text)]" aria-label={t("acct.copyAddress")}>
                   {copied === a.address ? <Check size={15} className="text-[var(--dw-green)]" /> : <Copy size={15} />}
                 </button>
                 <button
                   onClick={() => { setEditing(i); setEditName(a.name); }}
-                  className="shrink-0 text-xs text-[var(--dw-muted)] hover:text-white"
+                  className="shrink-0 text-xs text-[var(--dw-muted)] hover:text-[var(--dw-text)]"
                 >
-                  ชื่อ
+                  {t("common.name")}
                 </button>
                 <button
                   onClick={() => { setExportIdx(i); setExportKey(null); setPin(""); setErr(null); setMode("export"); }}
-                  className="shrink-0 text-xs text-[var(--dw-muted)] hover:text-white"
+                  className="shrink-0 text-xs text-[var(--dw-muted)] hover:text-[var(--dw-text)]"
                 >
-                  กุญแจ
+                  {t("acct.key")}
                 </button>
                 {accounts.length > 1 && (
                   <button
                     onClick={() => {
-                      if (confirm(`ลบ "${a.name}" ?${a.enc ? "\n(บัญชีนำเข้า — ต้องมี private key เพื่อกู้คืน)" : ""}`)) removeAccount(i);
+                      if (confirm(`${t("acct.deletePrefix")} "${a.name}" ?${a.enc ? "\n" + t("acct.deleteImportedNote") : ""}`)) removeAccount(i);
                     }}
                     className="shrink-0 text-xs text-[var(--dw-rose)] hover:opacity-80"
                   >
-                    ลบ
+                    {t("common.remove")}
                   </button>
                 )}
               </div>
             ))}
           </div>
-          <div className={`mt-4 grid gap-2.5 ${hasSeed ? "grid-cols-2" : "grid-cols-1"}`}>
+          <div className="mt-4 space-y-2.5">
             {hasSeed && (
               <button
-                onClick={() => { setMode("add"); setErr(null); }}
-                className="dw-btn-primary flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-semibold"
+                onClick={() => { setMode("add"); setErr(null); setPin(""); }}
+                className="dw-btn-ghost flex w-full items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-semibold"
               >
-                <Plus size={17} /> เพิ่มบัญชี
+                <Plus size={17} /> {t("acct.addAccount")}
               </button>
             )}
-            <button
-              onClick={() => { setMode("import"); setErr(null); }}
-              className="dw-btn-ghost flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-semibold"
-            >
-              นำเข้า Private Key
-            </button>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                onClick={() => { setMode("create"); setErr(null); setPin(""); }}
+                className="dw-btn-primary flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-semibold"
+              >
+                <Plus size={17} /> {t("acct.createWallet")}
+              </button>
+              <button
+                onClick={() => { setMode("import"); setErr(null); }}
+                className="dw-btn-ghost flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-semibold"
+              >
+                {t("acct.importPk")}
+              </button>
+            </div>
           </div>
           <p className="mt-3 text-center text-[11px] text-[var(--dw-muted)]">
-            {accounts.length}/100 บัญชี{hasSeed ? " · บัญชี HD มาจาก seed เดียว" : " · กระเป๋านำเข้า (ไม่มี seed)"}
+            {accounts.length}/100 {t("settings.accountsSuffix")}{hasSeed ? t("acct.hdNote") : t("acct.importedWalletNote")}
           </p>
         </div>
       )}

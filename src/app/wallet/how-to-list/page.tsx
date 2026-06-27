@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { Screen } from "@/components/wallet/PhoneShell";
 import { TopBar } from "@/components/wallet/TopBar";
 import { BottomNav } from "@/components/wallet/BottomNav";
 import { Check, Warn, ChevronRight } from "@/components/wallet/Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
@@ -20,61 +20,60 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 }
 
 export default function HowToListPage() {
+  const { t } = useI18n();
   return (
     <>
-      <TopBar title="วิธีลงลิสต์โทเคน" />
+      <TopBar title={t("howto.title")} />
       <Screen className="space-y-3 pb-8">
         <p className="px-1 pt-1 text-sm text-[var(--dw-muted)]">
-          กระเป๋านี้ดึงโทเคนจาก <span className="text-white">Danny Chain (5069)</span> โดยอัตโนมัติ —
-          ทำตามขั้นตอนเพื่อให้โทเคนของคุณแสดงครบทั้งราคา กราฟ และโลโก้
+          {t("howto.intro")}
         </p>
 
-        <Step n={1} title="ให้ชื่อ/เหรียญขึ้น (ขั้นต่ำ)">
-          Deploy สัญญา <span className="font-semibold text-white">ERC-20</span> บนเชน 5069 แล้วให้
-          explorer (dannyscan) index — เหรียญจะโผล่ในหน้า “สำรวจโทเคนทั้งหมด” อัตโนมัติ พร้อมชื่อ สัญลักษณ์ holders และซัพพลาย
+        <Step n={1} title={t("howto.step1Title")}>
+          {t("howto.step1Body")}
         </Step>
 
-        <Step n={2} title="ให้มีราคา / กราฟ / วอลุ่ม">
-          สร้าง <span className="font-semibold text-white">liquidity pool บน dandex</span> จับคู่กับ{" "}
-          <span className="font-semibold text-white">WDAN</span> หรือ <span className="font-semibold text-white">USDT</span> —
-          เมื่อมีสภาพคล่อง กระเป๋าจะแสดงราคา, %24ชม., วอลุ่ม และกราฟ on-chain ให้เอง
+        <Step n={2} title={t("howto.step2Title")}>
+          {t("howto.step2Body")}
         </Step>
 
-        <Step n={3} title="ให้มีโลโก้">
-          เพิ่มโลโก้เข้า token list ของ dandex หรือ{" "}
-          <Link href="/wallet/listing" className="font-semibold text-[var(--dw-cyan)]">ส่งคำขอลงลิสต์</Link>{" "}
-          พร้อมไฟล์โลโก้ — ทีมงานจะเพิ่มให้ในแมปของกระเป๋า
+        <Step n={3} title={t("howto.step3Title")}>
+          {t("howto.step3Body1")}{" "}
+          <a href="https://dancharts.com/list/" target="_blank" rel="noopener noreferrer" className="font-semibold text-[var(--dw-cyan)]">{t("howto.step3Link")}</a>{" "}
+          {t("howto.step3Body2")}
         </Step>
 
         <div className="dw-glass rounded-2xl p-4">
           <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-[var(--dw-rose)]">
-            <Warn size={15} /> โทเคนจะไม่แสดง ถ้า
+            <Warn size={15} /> {t("howto.notShownTitle")}
           </h3>
           <ul className="space-y-1.5 text-sm text-[var(--dw-muted)]">
-            <li>• ไม่ใช่มาตรฐาน ERC-20 (เช่น NFT/ERC-721)</li>
-            <li>• ชื่อ/สัญลักษณ์เข้าข่าย LP token (มีคำว่า LP/liquidity)</li>
-            <li>• อยู่ในรายการที่ถูกซ่อนโดยทีมงาน</li>
+            <li>{t("howto.notShown1")}</li>
+            <li>{t("howto.notShown2")}</li>
+            <li>{t("howto.notShown3")}</li>
           </ul>
         </div>
 
         <div className="dw-glass rounded-2xl p-4">
           <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-[var(--dw-green)]">
-            <Check size={15} /> เกณฑ์อนุมัติโลโก้/ลิสต์
+            <Check size={15} /> {t("howto.approveTitle")}
           </h3>
           <ul className="space-y-1.5 text-sm text-[var(--dw-muted)]">
-            <li>• สัญญายืนยัน (verified) บน dannyscan</li>
-            <li>• มีสภาพคล่องจริงบน dandex</li>
-            <li>• โลโก้จัตุรัส พื้นโปร่ง (PNG/SVG) ≤ 300KB</li>
-            <li>• มีช่องทางติดต่อ/โซเชียลของโปรเจกต์</li>
+            <li>{t("howto.approve1")}</li>
+            <li>{t("howto.approve2")}</li>
+            <li>{t("howto.approve3")}</li>
+            <li>{t("howto.approve4")}</li>
           </ul>
         </div>
 
-        <Link
-          href="/wallet/listing"
+        <a
+          href="https://dancharts.com/list/"
+          target="_blank"
+          rel="noopener noreferrer"
           className="dw-btn-primary mt-1 flex w-full items-center justify-center gap-1.5 rounded-2xl py-4 font-semibold"
         >
-          ส่งคำขอลงลิสต์โทเคน <ChevronRight size={16} />
-        </Link>
+          {t("howto.submitBtn")} <ChevronRight size={16} />
+        </a>
       </Screen>
       <BottomNav />
     </>

@@ -10,11 +10,13 @@ import { PinPad, PinDots } from "@/components/wallet/PinPad";
 import { copyEphemeral } from "@/lib/wallet/clipboard";
 import { Wallet } from "ethers";
 import { Shield, Warn, Copy, Check, EyeOff } from "@/components/wallet/Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
 type Step = "warn" | "seed" | "confirm" | "pin";
 
 export default function CreateWallet() {
   const router = useRouter();
+  const { t } = useI18n();
   const { createWallet } = useWallet();
   const [step, setStep] = React.useState<Step>("warn");
   const [revealed, setRevealed] = React.useState(false);
@@ -85,7 +87,7 @@ export default function CreateWallet() {
   return (
     <>
       <TopBar
-        title="สร้างกระเป๋าใหม่"
+        title={t("common.createWallet")}
         onBack={() => {
           if (step === "seed") setStep("warn");
           else if (step === "confirm") setStep("seed");
@@ -116,16 +118,15 @@ export default function CreateWallet() {
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--dw-amber)]/15 text-[var(--dw-amber)]">
                 <Warn size={24} />
               </span>
-              <h2 className="mt-4 text-lg font-semibold">เก็บวลีกู้คืนให้ปลอดภัย</h2>
+              <h2 className="mt-4 text-lg font-semibold">{t("create.saveSeedTitle")}</h2>
               <p className="mt-2 text-sm leading-relaxed text-[var(--dw-muted)]">
-                วลี 12 คำคือกุญแจเดียวสู่กระเป๋าของคุณ จดลงกระดาษและเก็บออฟไลน์
-                อย่าแชร์กับใคร อย่าถ่ายรูป และอย่ากรอกในเว็บที่ไม่รู้จัก
+                {t("create.saveSeedDesc")}
               </p>
               <ul className="mt-4 space-y-2 text-sm">
-                {["ทีมงานจะไม่ขอวลีนี้เด็ดขาด", "ถ้าทำหาย จะกู้กระเป๋าไม่ได้", "ใครมีวลีนี้ = ควบคุมเงินได้"].map(
-                  (t) => (
-                    <li key={t} className="flex items-start gap-2 text-[var(--dw-muted)]">
-                      <Shield size={16} className="mt-0.5 text-[var(--dw-green)]" /> {t}
+                {[t("create.warn1"), t("create.warn2"), t("create.warn3")].map(
+                  (w) => (
+                    <li key={w} className="flex items-start gap-2 text-[var(--dw-muted)]">
+                      <Shield size={16} className="mt-0.5 text-[var(--dw-green)]" /> {w}
                     </li>
                   )
                 )}
@@ -135,7 +136,7 @@ export default function CreateWallet() {
               onClick={() => setStep("seed")}
               className="dw-btn-primary mt-5 rounded-2xl py-4 font-semibold"
             >
-              เข้าใจแล้ว แสดงวลี
+              {t("create.understandShow")}
             </button>
           </div>
         )}
@@ -143,7 +144,7 @@ export default function CreateWallet() {
         {step === "seed" && (
           <div className="dw-rise">
             <p className="text-sm text-[var(--dw-muted)]">
-              จดวลี 12 คำตามลำดับ แล้วกดถัดไปเพื่อยืนยัน
+              {t("create.writeOrder")}
             </p>
             <div className="relative mt-4">
               <SeedPhraseGrid words={SEED} />
@@ -153,7 +154,7 @@ export default function CreateWallet() {
                   className="dw-glass-strong absolute inset-0 grid place-items-center rounded-2xl backdrop-blur-md"
                 >
                   <span className="flex flex-col items-center gap-2 text-sm text-[var(--dw-muted)]">
-                    <EyeOff size={26} /> แตะเพื่อแสดงวลี
+                    <EyeOff size={26} /> {t("create.tapToShow")}
                   </span>
                 </button>
               )}
@@ -163,23 +164,23 @@ export default function CreateWallet() {
               className="dw-btn-ghost mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm"
             >
               {copied ? <Check size={16} /> : <Copy size={16} />}
-              {copied ? "คัดลอกแล้ว" : "คัดลอกวลี"}
+              {copied ? t("receive.copied") : t("create.copySeed")}
             </button>
             <button
               onClick={() => setStep("confirm")}
               disabled={!revealed}
               className="dw-btn-primary mt-4 w-full rounded-2xl py-4 font-semibold"
             >
-              ฉันจดไว้แล้ว ถัดไป
+              {t("create.wroteNext")}
             </button>
           </div>
         )}
 
         {step === "confirm" && (
           <div className="dw-rise">
-            <h2 className="text-lg font-semibold">ยืนยันวลีกู้คืน</h2>
+            <h2 className="text-lg font-semibold">{t("create.confirmSeed")}</h2>
             <p className="mb-5 mt-1 text-sm text-[var(--dw-muted)]">
-              เลือกคำให้ถูกต้องเพื่อยืนยันว่าคุณบันทึกไว้แล้ว
+              {t("create.confirmSeedDesc")}
             </p>
             <SeedConfirm
               words={SEED}
@@ -195,10 +196,10 @@ export default function CreateWallet() {
               <Shield size={26} />
             </span>
             <h2 className="mt-4 text-lg font-semibold">
-              {pinPhase === "set" ? "ตั้งรหัส PIN 6 หลัก" : "ยืนยันรหัส PIN อีกครั้ง"}
+              {pinPhase === "set" ? t("create.setPin") : t("create.confirmPinAgain")}
             </h2>
             <p className="mt-1 text-sm text-[var(--dw-muted)]">
-              ใช้ปลดล็อกกระเป๋าทุกครั้งที่เปิดแอป
+              {t("create.pinDesc")}
             </p>
             <div className="my-7">
               <PinDots
@@ -208,7 +209,7 @@ export default function CreateWallet() {
               />
               {pinErr && (
                 <p className="mt-3 text-center text-sm text-[var(--dw-rose)]">
-                  PIN ไม่ตรงกัน ลองใหม่
+                  {t("create.pinMismatch")}
                 </p>
               )}
             </div>

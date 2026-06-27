@@ -13,6 +13,7 @@ import { CHAIN, type Tx } from "@/lib/wallet/mock-data";
 import { useWallet } from "@/lib/wallet/wallet-store";
 import { formatUsd, formatToken, shortAddress } from "@/lib/wallet/format";
 import { ArrowUp, ArrowDown, Swap, Warn, Globe, Copy, Check } from "@/components/wallet/Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 import type { Holding } from "@/app/api/danny/portfolio/route";
 import type { DannyToken } from "@/app/api/danny/tokens/route";
 import { WDAN } from "@/lib/wallet/danny-prices";
@@ -41,6 +42,7 @@ function compact(n: number): string {
 const WDAN_USDT_PAIR = "0xce79470c765cfd64274b0d43128746bdf9e3a5d2";
 
 export default function AssetDetail() {
+  const { t: tr } = useI18n();
   const params = useParams();
   const { address } = useWallet();
   const MY_ADDRESS = address ?? "";
@@ -134,7 +136,7 @@ export default function AssetDetail() {
   if (state === "loading") {
     return (
       <>
-        <TopBar title="สินทรัพย์" />
+        <TopBar title={tr("asset.asset")} />
         <Screen className="space-y-3">
           <div className="dw-glass dw-shimmer h-28 rounded-3xl" />
           <div className="dw-glass dw-shimmer h-24 rounded-2xl" />
@@ -147,14 +149,14 @@ export default function AssetDetail() {
   if (state === "notfound" || state === "error" || !holding) {
     return (
       <>
-        <TopBar title="สินทรัพย์" />
+        <TopBar title={tr("asset.asset")} />
         <Screen className="flex flex-col items-center justify-center gap-3 pt-20 text-center">
           <Warn size={32} className="text-[var(--dw-rose)]" />
           <p className="text-sm text-[var(--dw-muted)]">
-            {state === "notfound" ? "ไม่พบสินทรัพย์นี้ในกระเป๋า" : "โหลดข้อมูลไม่สำเร็จ"}
+            {state === "notfound" ? tr("asset.notFound") : tr("asset.loadFailed")}
           </p>
           <Link href="/wallet/home" className="dw-btn-primary rounded-xl px-5 py-2.5 text-sm font-semibold">
-            กลับหน้าหลัก
+            {tr("asset.backHome")}
           </Link>
         </Screen>
       </>
@@ -176,9 +178,9 @@ export default function AssetDetail() {
       <Screen>
         {/* ราคา */}
         <div className="flex flex-col items-center pt-2 text-center">
-          <p className="text-sm text-[var(--dw-muted)]">ราคา {holding.symbol}</p>
+          <p className="text-sm text-[var(--dw-muted)]">{tr("asset.pricePre")} {holding.symbol}</p>
           <p className="mt-1 text-3xl font-bold tabular-nums">
-            {holding.priceUsd != null ? fmtPrice(holding.priceUsd) : "ไม่มีราคา"}
+            {holding.priceUsd != null ? fmtPrice(holding.priceUsd) : tr("common.noPrice")}
           </p>
           {holding.change24h != null && (
             <span
@@ -186,7 +188,7 @@ export default function AssetDetail() {
                 up ? "bg-[var(--dw-green)]/12 text-[var(--dw-green)]" : "bg-[var(--dw-rose)]/12 text-[var(--dw-rose)]"
               }`}
             >
-              {up ? "▲" : "▼"} {Math.abs(holding.change24h).toFixed(2)}% · 24 ชม.
+              {up ? "▲" : "▼"} {Math.abs(holding.change24h).toFixed(2)}% · {tr("chart.24h")}
             </span>
           )}
         </div>
@@ -196,7 +198,7 @@ export default function AssetDetail() {
           <div className="flex items-center gap-3">
             <TokenIcon symbol={holding.symbol} gradient={g} logo={holding.logo} />
             <div>
-              <p className="text-xs text-[var(--dw-muted)]">ยอดถือครอง</p>
+              <p className="text-xs text-[var(--dw-muted)]">{tr("asset.holdings")}</p>
               <p className="font-semibold tabular-nums">{formatToken(holding.balance, holding.symbol)}</p>
             </div>
           </div>
@@ -209,7 +211,7 @@ export default function AssetDetail() {
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold">กราฟราคา</p>
+              <p className="text-sm font-semibold">{tr("asset.priceChart")}</p>
               {chartState === "ok" && chartChange != null && (
                 <span
                   className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
@@ -219,7 +221,7 @@ export default function AssetDetail() {
                   }`}
                 >
                   {chartChange >= 0 ? "▲" : "▼"} {Math.abs(chartChange).toFixed(2)}%
-                  <span className="text-[var(--dw-muted)]">· {range === "1h" ? "1ชม." : range === "7d" ? "7วัน" : "24ชม."}</span>
+                  <span className="text-[var(--dw-muted)]">· {range === "1h" ? tr("chart.1h") : range === "7d" ? tr("chart.7dShort") : tr("chart.24hShort")}</span>
                 </span>
               )}
             </div>
@@ -232,14 +234,14 @@ export default function AssetDetail() {
                     chartType === t ? "dw-btn-primary" : "dw-btn-ghost text-[var(--dw-muted)]"
                   }`}
                 >
-                  {t === "candle" ? "แท่งเทียน" : "เส้น"}
+                  {t === "candle" ? tr("chart.candle") : tr("chart.line")}
                 </button>
               ))}
             </div>
           </div>
           {/* เลือกช่วงเวลา */}
           <div className="mb-2 flex items-center gap-1.5 px-1">
-            {([["1h", "1 ชม."], ["24h", "24 ชม."], ["7d", "7 วัน"]] as const).map(([r, label]) => (
+            {([["1h", tr("chart.1h")], ["24h", tr("chart.24h")], ["7d", tr("chart.7d")]] as const).map(([r, label]) => (
               <button
                 key={r}
                 onClick={() => setRange(r)}
@@ -262,7 +264,7 @@ export default function AssetDetail() {
               )
             ) : (
               <div className="flex h-[120px] items-center justify-center text-center text-xs text-[var(--dw-muted)]">
-                ยังไม่มีข้อมูลกราฟ (คู่เทรดสภาพคล่องต่ำ/ไม่มีบน DEX)
+                {tr("asset.noChartData")}
               </div>
             )}
           </div>
@@ -270,10 +272,10 @@ export default function AssetDetail() {
 
         {/* สถิติตลาดจริง */}
         <div className="mt-4 grid grid-cols-2 gap-2.5">
-          <Stat label="มาร์เก็ตแคป" value={market?.marketCap ? `$${compact(market.marketCap)}` : "—"} />
-          <Stat label="วอลุ่ม 24 ชม." value={market?.vol24hUSD != null ? `$${compact(market.vol24hUSD)}` : "—"} />
-          <Stat label="ผู้ถือ (holders)" value={market?.holders ? compact(market.holders) : "—"} />
-          <Stat label="ซัพพลายรวม" value={market?.totalSupply ? compact(market.totalSupply) : "—"} />
+          <Stat label={tr("asset.marketCap")} value={market?.marketCap ? `$${compact(market.marketCap)}` : "—"} />
+          <Stat label={tr("asset.vol24h")} value={market?.vol24hUSD != null ? `$${compact(market.vol24hUSD)}` : "—"} />
+          <Stat label={tr("asset.holders")} value={market?.holders ? compact(market.holders) : "—"} />
+          <Stat label={tr("asset.totalSupply")} value={market?.totalSupply ? compact(market.totalSupply) : "—"} />
         </div>
 
         {/* สัญญา */}
@@ -282,7 +284,7 @@ export default function AssetDetail() {
             onClick={copy}
             className="dw-glass mt-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm"
           >
-            <span className="text-[var(--dw-muted)]">สัญญาโทเคน</span>
+            <span className="text-[var(--dw-muted)]">{tr("asset.tokenContract")}</span>
             <span className="flex items-center gap-1.5 font-medium">
               {copied ? <Check size={14} className="text-[var(--dw-green)]" /> : <Copy size={14} />}
               {shortAddress(holding.address)}
@@ -293,13 +295,13 @@ export default function AssetDetail() {
         {/* ปุ่มลัด */}
         <div className="mt-4 grid grid-cols-3 gap-2.5">
           <Link href="/wallet/send" className="dw-btn-ghost flex flex-col items-center gap-1 rounded-2xl py-3 text-xs">
-            <ArrowUp size={20} /> ส่ง
+            <ArrowUp size={20} /> {tr("common.send")}
           </Link>
           <Link href="/wallet/receive" className="dw-btn-ghost flex flex-col items-center gap-1 rounded-2xl py-3 text-xs">
-            <ArrowDown size={20} /> รับ
+            <ArrowDown size={20} /> {tr("common.receive")}
           </Link>
           <Link href="/wallet/swap" className="dw-btn-ghost flex flex-col items-center gap-1 rounded-2xl py-3 text-xs">
-            <Swap size={20} /> สลับ
+            <Swap size={20} /> {tr("common.swap")}
           </Link>
         </div>
 
@@ -311,7 +313,7 @@ export default function AssetDetail() {
             rel="noopener noreferrer"
             className="dw-glass flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs text-[var(--dw-muted)] hover:text-white"
           >
-            <Globe size={15} /> ดูบน Dannyscan
+            <Globe size={15} /> {tr("asset.viewDannyscan")}
           </a>
           <a
             href="https://dancharts.com"
@@ -319,22 +321,22 @@ export default function AssetDetail() {
             rel="noopener noreferrer"
             className="dw-glass flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs text-[var(--dw-muted)] hover:text-white"
           >
-            <Globe size={15} /> กราฟบน Dancharts
+            <Globe size={15} /> {tr("asset.chartDancharts")}
           </a>
         </div>
 
         {/* ประวัติ */}
-        <h2 className="mb-3 mt-6 font-semibold">ประวัติธุรกรรม</h2>
+        <h2 className="mb-3 mt-6 font-semibold">{tr("activity.title")}</h2>
         <div className="space-y-2.5">
           {txs.length ? (
             txs.map((tx) => <TxRow key={tx.id} tx={tx} />)
           ) : (
-            <p className="py-6 text-center text-sm text-[var(--dw-muted)]">ยังไม่มีธุรกรรมของเหรียญนี้</p>
+            <p className="py-6 text-center text-sm text-[var(--dw-muted)]">{tr("asset.noTxForCoin")}</p>
           )}
         </div>
 
         <p className="mt-5 text-center text-[11px] text-[var(--dw-muted)]">
-          ข้อมูลจริงจาก Danny Chain · ยอด/ผู้ถือจาก dannyscan, ราคา/วอลุ่มจาก dancharts
+          {tr("asset.footer")}
         </p>
       </Screen>
     </>

@@ -1,7 +1,7 @@
 # Danny Wallet
 
 A modern crypto wallet (mobile-first · dark/neon) for **Danny Chain (chainId 5069)**.
-Pulls **real on-chain data** (tokens / prices / charts / portfolio / transactions) · supports Send / Swap / WalletConnect / token listing.
+Pulls **real on-chain data** (tokens / prices / charts / portfolio / transactions) · supports Send / Swap / WalletConnect.
 Runs as both a **web app** and a **desktop app (Electron)**.
 
 ---
@@ -13,7 +13,6 @@ Runs as both a **web app** and a **desktop app (Electron)**.
 - **Transactions** — Send + Swap (dandex router) signed with the in-app key (PIN required) + gas estimation
 - **WalletConnect** — connect dApps + auto-handle deep links `?uri=` (registry-ready)
 - **In-app explorer** — search addresses/transactions/blocks + dApp browser (falls back to a new tab if the site can't be embedded)
-- **Token listing** — submission form for projects + admin approval page → auto-adds the logo + webhook notification
 
 ## 🚀 Getting started (web)
 ```bash
@@ -42,17 +41,15 @@ Full details (Hostinger VPS / Ubuntu 22.04 / env / CI) in **[DEPLOY.md](DEPLOY.m
 | Variable | Purpose |
 |---|---|
 | `NEXT_PUBLIC_WC_PROJECT_ID` | WalletConnect Project ID |
-| `LISTING_ADMIN_KEY` | Admin key for the listing page (⚠️ change from the default) |
-| `LISTING_NOTIFY_WEBHOOK` | New-request notifications (Discord/Slack) |
 | `DOMAIN` | Domain for Caddy/HTTPS (Docker) |
 
 ## 📁 Structure
 ```
 src/app/wallet/        app pages (welcome, create, import, unlock, home, asset,
                        send, receive, swap, activity, settings, explorer,
-                       connect, tokens, listing, how-to-list, admin/listings)
+                       connect, tokens, how-to-list)
 src/app/api/danny/     server-side proxies (tokens, portfolio, activity, chart,
-                       explorer, lookup, contacts, listing, embed-check)
+                       explorer, lookup, contacts, embed-check)
 src/components/wallet/  UI (BalanceCard, CandleChart, DappBrowser, AccountSwitcher…)
 src/lib/wallet/         logic (wallet-store, crypto, dandex-swap, walletconnect…)
 electron/              Electron main + preload + prepare-standalone

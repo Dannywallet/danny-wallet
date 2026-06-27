@@ -3,6 +3,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "./Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
 export function TopBar({
   title,
@@ -14,12 +15,13 @@ export function TopBar({
   onBack?: () => void;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   return (
     <div className="relative z-10 flex items-center justify-between px-4 pb-1 pt-5">
       <button
         onClick={() => (onBack ? onBack() : router.back())}
         className="dw-btn-ghost grid h-9 w-9 place-items-center rounded-full"
-        aria-label="ย้อนกลับ"
+        aria-label={t("common.back")}
       >
         <ChevronLeft size={20} />
       </button>

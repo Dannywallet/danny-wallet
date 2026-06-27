@@ -49,8 +49,21 @@ export async function getWeb3Wallet(): Promise<IWeb3Wallet> {
 }
 
 export async function pair(uri: string): Promise<void> {
+  const clean = (uri || "").trim();
+  // ตรวจรูปแบบ WalletConnect v2 URI ก่อน เพื่อกัน error "atob ... not correctly encoded"
+  // ที่เกิดเมื่อสตริงไม่ใช่ลิงก์ wc: ที่ถูกต้อง (เช่นคัดลอกไม่ครบ)
+  if (!/^wc:[0-9a-f]+@2/i.test(clean) || !/symKey=[0-9a-fA-F]+/.test(clean)) {
+    throw new Error("ลิงก์ WalletConnect ไม่ถูกต้อง — คัดลอก URI (ขึ้นต้น wc:) จาก dApp ใหม่อีกครั้ง");
+  }
   const w = await getWeb3Wallet();
-  await w.pair({ uri: uri.trim() });
+  try {
+    await w.pair({ uri: clean });
+  } catch (e: any) {
+    if (/atob|not correctly encoded|decode/i.test(e?.message || "")) {
+      throw new Error("ลิงก์ WalletConnect ไม่ถูกต้องหรือหมดอายุ — ขอ URI ใหม่จาก dApp แล้วลองอีกครั้ง");
+    }
+    throw e;
+  }
 }
 
 /** อนุมัติ session — รองรับเฉพาะ Danny Chain (5069) */
@@ -125,13 +138,50 @@ export function describeRequest(method: string, params: any[]): string {
         return "ลงนามข้อความ";
       }
     case "eth_sign":
-      return "ลงนามข้อมูล (eth_sign)";
+      return "⚠️ ลงนามข้อมูลดิบ (eth_sign) — เซ็นเฉพาะ dApp ที่เชื่อถือเท่านั้น ⚠️";
     case "eth_signTypedData":
     case "eth_signTypedData_v4":
-      return "ลงนามข้อมูลแบบ typed data";
+      try {
+        const data = typeof params[1] === "string" ? JSON.parse(params[1]) : params[1];
+        const pt = String(data?.primaryType || "");
+        const dom = data?.domain?.name ? ` · ${data.domain.name}` : "";
+        const m = data?.message || {};
+        // Permit = อนุมัติโทเคนผ่านลายเซ็น (gasless approve) — ช่องทางดูดเงินยอดนิยม → เตือนเข้ม + โชว์ spender/จำนวน
+        if (/permit/i.test(pt)) {
+          const spender = m.spender ? shortAddress(String(m.spender)) : "?";
+          const val = m.value ?? m.allowed;
+          const amt = val != null ? ` · จำนวน ${String(val)} (หน่วยฐาน)` : "";
+          return `⚠️ Permit — อนุญาตให้ ${spender} ใช้โทเคนผ่านลายเซ็น (เหมือน approve)${amt}${dom} · ตรวจสอบให้แน่ใจก่อนเซ็น! ⚠️`;
+        }
+        return `ลงนาม typed data: ${pt || "ไม่ทราบชนิด"}${dom} (ตรวจสอบเนื้อหาก่อนเซ็น)`;
+      } catch {
+        return "ลงนามข้อมูลแบบ typed data (ตรวจสอบให้แน่ใจก่อนเซ็น)";
+      }
     default:
       return method;
   }
+}
+
+/** ตรวจว่าคำขอเป็นการอนุมัติโทเคน "แบบไม่จำกัด" (approve unlimited / Permit unlimited) → ต้องยืนยันพิเศษ */
+export function isUnlimitedApproval(method: string, params: any[]): boolean {
+  try {
+    if (method === "eth_sendTransaction") {
+      const data: string = params?.[0]?.data || "0x";
+      if (data.length < 10) return false;
+      const p = ERC20_IFACE.parseTransaction({ data });
+      return p?.name === "approve" && BigInt(p.args.amount) >= HALF_MAX_UINT;
+    }
+    if (method === "eth_signTypedData" || method === "eth_signTypedData_v4") {
+      const d = typeof params?.[1] === "string" ? JSON.parse(params[1]) : params?.[1];
+      if (!/permit/i.test(String(d?.primaryType || ""))) return false;
+      const m = d?.message || {};
+      if (m.allowed === true) return true; // DAI-style permit = อนุญาตไม่จำกัด
+      return m.value != null && BigInt(m.value) >= HALF_MAX_UINT;
+    }
+  } catch {
+    /* parse ไม่ได้ → ถือว่าไม่ใช่ */
+  }
+  return false;
 }
 
 /** ตอบคำขอเซ็น — เซ็นด้วย private key ของบัญชีที่ใช้งานอยู่ */

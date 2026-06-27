@@ -4,8 +4,10 @@
 import React from "react";
 import Link from "next/link";
 import { ChevronRight } from "./Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
 export function DanBanner() {
+  const { t } = useI18n();
   return (
     <Link
       href="/wallet/asset/native"
@@ -28,13 +30,13 @@ export function DanBanner() {
             ✦ DANNY CHAIN
           </span>
           <h3 className="mt-2 text-xl font-bold leading-snug">
-            เหรียญ <span className="dw-text-grad">DAN</span>
+            {t("banner.coinPre")} <span className="dw-text-grad">DAN</span>
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-[var(--dw-muted)]">
-            เหรียญหลักของเครือข่าย · ดูราคาและกราฟเรียลไทม์
+            {t("banner.danDesc")}
           </p>
           <span className="dw-btn-primary mt-3 inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-semibold">
-            ดูรายละเอียด <ChevronRight size={14} />
+            {t("banner.viewDetails")} <ChevronRight size={14} />
           </span>
         </div>
 
@@ -42,7 +44,7 @@ export function DanBanner() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/danny-mockup1.png"
-          alt="เหรียญ DAN"
+          alt={t("balance.danCoin")}
           draggable={false}
           className="dw-float h-20 w-auto max-w-[38%] shrink-0 object-contain drop-shadow-[0_8px_22px_rgba(249,187,75,0.35)]"
         />

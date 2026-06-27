@@ -39,7 +39,7 @@ export function PinPad({
           <button
             key={i}
             onClick={() => (k === "⌫" ? onDelete() : onKey(k))}
-            className="dw-key dw-glass mx-auto grid h-16 w-16 place-items-center rounded-full text-2xl font-medium text-white transition"
+            className="dw-key dw-glass mx-auto grid h-16 w-16 place-items-center rounded-full text-2xl font-medium text-[var(--dw-text)] transition"
           >
             {k}
           </button>

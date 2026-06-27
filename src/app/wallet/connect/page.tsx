@@ -9,12 +9,14 @@ import { Sheet } from "@/components/wallet/Sheet";
 import { shortAddress } from "@/lib/wallet/format";
 import {
   hasProjectId, getWeb3Wallet, pair, approveSession, rejectSession,
-  getActiveSessions, disconnectSession, describeRequest, respondRequest, rejectRequest,
+  getActiveSessions, disconnectSession, describeRequest, respondRequest, rejectRequest, isUnlimitedApproval,
 } from "@/lib/wallet/walletconnect";
 import { Shield, Warn, Check, Globe, Scan, Logout } from "@/components/wallet/Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
 export default function ConnectPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const { hydrated, created, locked, address, getActivePrivateKey } = useWallet();
 
   const keyRef = React.useRef<string | null>(null);
@@ -26,6 +28,7 @@ export default function ConnectPage() {
   const [status, setStatus] = React.useState<string | null>(null);
   const [proposal, setProposal] = React.useState<any>(null);
   const [request, setRequest] = React.useState<any>(null);
+  const [ackUnlimited, setAckUnlimited] = React.useState(false);
   const [sessions, setSessions] = React.useState<any[]>([]);
   const [busy, setBusy] = React.useState(false);
 
@@ -57,7 +60,7 @@ export default function ConnectPage() {
     if (!ready || !hasProjectId()) return;
     let w: any;
     const onProposal = (p: any) => setProposal(p);
-    const onRequest = (r: any) => setRequest(r);
+    const onRequest = (r: any) => { setAckUnlimited(false); setRequest(r); };
     (async () => {
       try {
         w = await getWeb3Wallet();
@@ -65,7 +68,7 @@ export default function ConnectPage() {
         w.on("session_request", onRequest);
         setSessions(await getActiveSessions());
       } catch (e: any) {
-        setStatus(e?.message || "เริ่ม WalletConnect ไม่สำเร็จ");
+        setStatus(e?.message || t("connect.startFailed"));
       }
     })();
     return () => {
@@ -91,13 +94,13 @@ export default function ConnectPage() {
   const doPair = async () => {
     if (!uri.trim()) return;
     setBusy(true);
-    setStatus("กำลังจับคู่กับ dApp…");
+    setStatus(t("connect.pairing"));
     try {
       await pair(uri);
       setUri("");
-      setStatus("จับคู่แล้ว — รอ dApp ส่งคำขอเชื่อมต่อ");
+      setStatus(t("connect.paired"));
     } catch (e: any) {
-      setStatus(e?.message || "จับคู่ไม่สำเร็จ");
+      setStatus(e?.message || t("connect.pairFailed"));
     } finally {
       setBusy(false);
     }
@@ -118,9 +121,9 @@ export default function ConnectPage() {
     try {
       await approveSession(proposal, address);
       setSessions(await getActiveSessions());
-      setStatus("เชื่อมต่อ dApp สำเร็จ");
+      setStatus(t("connect.connected"));
     } catch (e: any) {
-      setStatus(e?.message || "อนุมัติไม่สำเร็จ");
+      setStatus(e?.message || t("connect.approveFailed"));
     } finally {
       setProposal(null);
       setBusy(false);
@@ -137,9 +140,9 @@ export default function ConnectPage() {
     setBusy(true);
     try {
       await respondRequest(request, keyRef.current);
-      setStatus("ลงนาม/ส่งธุรกรรมสำเร็จ");
+      setStatus(t("connect.signed"));
     } catch (e: any) {
-      setStatus(e?.message || "เซ็นไม่สำเร็จ");
+      setStatus(e?.message || t("connect.signFailed"));
     } finally {
       setRequest(null);
       setBusy(false);
@@ -149,6 +152,7 @@ export default function ConnectPage() {
   const denyRequest = async () => {
     if (request) await rejectRequest(request).catch(() => {});
     setRequest(null);
+    setAckUnlimited(false);
   };
 
   const disconnect = async (topic: string) => {
@@ -160,15 +164,15 @@ export default function ConnectPage() {
   if (!hasProjectId()) {
     return (
       <>
-        <TopBar title="เชื่อม dApp" />
+        <TopBar title={t("connect.title")} />
         <Screen className="flex flex-col items-center justify-center gap-4 px-6 text-center">
           <span className="grid h-16 w-16 place-items-center rounded-2xl bg-[var(--dw-amber)]/15 text-[var(--dw-amber)]">
             <Warn size={28} />
           </span>
-          <h2 className="text-lg font-semibold">ต้องตั้งค่า WalletConnect ก่อน</h2>
+          <h2 className="text-lg font-semibold">{t("connect.needSetup")}</h2>
           <p className="text-sm leading-relaxed text-[var(--dw-muted)]">
-            ขอ Project ID ฟรีที่ <span className="text-[var(--dw-cyan)]">cloud.walletconnect.com</span><br />
-            แล้วใส่ใน <code className="rounded bg-white/10 px-1.5 py-0.5 text-xs">NEXT_PUBLIC_WC_PROJECT_ID</code> ในไฟล์ .env แล้วรีสตาร์ท
+            {t("connect.setupHint1")} <span className="text-[var(--dw-cyan)]">cloud.walletconnect.com</span><br />
+            {t("connect.setupHint2")} <code className="rounded bg-white/10 px-1.5 py-0.5 text-xs">NEXT_PUBLIC_WC_PROJECT_ID</code> {t("connect.setupHint3")}
           </p>
         </Screen>
       </>
@@ -177,7 +181,7 @@ export default function ConnectPage() {
 
   return (
     <>
-      <TopBar title="เชื่อม dApp (WalletConnect)" />
+      <TopBar title={t("connect.titleFull")} />
       <Screen>
         {!ready ? (
           // ขั้นเปิดใช้การเซ็นด้วย PIN
@@ -185,12 +189,12 @@ export default function ConnectPage() {
             {incoming && (
               <div className="dw-glass mb-3 flex items-start gap-2.5 rounded-2xl border-[var(--dw-cyan)]/30 bg-[var(--dw-cyan)]/[0.06] p-3.5 text-sm text-[var(--dw-muted)]">
                 <Globe size={18} className="mt-0.5 shrink-0 text-[var(--dw-cyan)]" />
-                มีคำขอเชื่อมต่อจาก dApp — ใส่ PIN เพื่อเชื่อมต่ออัตโนมัติ
+                {t("connect.hasRequest")}
               </div>
             )}
             <div className="dw-glass mb-4 flex items-start gap-2.5 rounded-2xl p-4 text-sm text-[var(--dw-muted)]">
               <Shield size={18} className="mt-0.5 shrink-0 text-[var(--dw-green)]" />
-              ใส่ PIN เพื่อปลดล็อกการเซ็นชั่วคราว — กุญแจจะอยู่ในหน่วยความจำเฉพาะหน้านี้
+              {t("connect.pinUnlock")}
             </div>
             <input
               type="password"
@@ -199,13 +203,13 @@ export default function ConnectPage() {
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
               onKeyDown={(e) => e.key === "Enter" && pin.length === 6 && enableSigning()}
-              placeholder="ใส่ PIN 6 หลัก"
+              placeholder={t("tx.enterPin")}
               className="dw-glass w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
               style={{ color: "var(--dw-text)" }}
             />
             {pinErr && (
               <p className="mt-2 flex items-center justify-center gap-1 text-xs text-[var(--dw-rose)]">
-                <Warn size={13} /> PIN ไม่ถูกต้อง
+                <Warn size={13} /> {t("tx.pinWrong")}
               </p>
             )}
             <button
@@ -213,20 +217,20 @@ export default function ConnectPage() {
               disabled={pin.length < 6}
               className="dw-btn-primary mt-4 w-full rounded-2xl py-3.5 font-semibold"
             >
-              เปิดใช้การเซ็น
+              {t("connect.enableSigning")}
             </button>
           </div>
         ) : (
           <div className="dw-rise">
             {/* วาง URI */}
-            <p className="mb-2 px-1 text-xs font-medium text-[var(--dw-muted)]">วางลิงก์เชื่อมต่อจาก dApp</p>
+            <p className="mb-2 px-1 text-xs font-medium text-[var(--dw-muted)]">{t("connect.pasteUri")}</p>
             <div className="dw-glass flex items-center gap-2 rounded-2xl px-4 py-3 focus-within:border-[var(--dw-cyan)]/50">
               <input
                 value={uri}
                 onChange={(e) => setUri(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && doPair()}
                 placeholder="wc:..."
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--dw-muted)]"
                 style={{ color: "var(--dw-text)" }}
               />
               <button className="text-[var(--dw-cyan)]"><Scan size={18} /></button>
@@ -236,7 +240,7 @@ export default function ConnectPage() {
               disabled={!uri.trim() || busy}
               className="dw-btn-primary mt-3 w-full rounded-2xl py-3.5 font-semibold"
             >
-              เชื่อมต่อ
+              {t("connect.connect")}
             </button>
 
             {status && (
@@ -246,13 +250,13 @@ export default function ConnectPage() {
             )}
 
             <p className="mt-2 px-1 text-[11px] text-[var(--dw-muted)]">
-              เชื่อมในชื่อ {address ? shortAddress(address) : "—"} · เครือข่าย Danny Chain (5069)
+              {t("connect.connectAsPre")} {address ? shortAddress(address) : "—"} {t("connect.connectAsSuf")}
             </p>
 
             {/* session ที่เชื่อมอยู่ */}
             {sessions.length > 0 && (
               <div className="mt-5">
-                <p className="mb-2 px-1 text-xs font-medium text-[var(--dw-muted)]">dApp ที่เชื่อมอยู่</p>
+                <p className="mb-2 px-1 text-xs font-medium text-[var(--dw-muted)]">{t("connect.activeDapps")}</p>
                 <div className="space-y-2">
                   {sessions.map((s) => (
                     <div key={s.topic} className="dw-glass flex items-center gap-3 rounded-2xl px-3.5 py-3">
@@ -276,36 +280,51 @@ export default function ConnectPage() {
       </Screen>
 
       {/* อนุมัติ session */}
-      <Sheet open={!!proposal} onClose={reject} title="คำขอเชื่อมต่อ">
+      <Sheet open={!!proposal} onClose={reject} title={t("connect.proposalTitle")}>
         <div className="text-center">
           <p className="font-semibold">{proposal?.params?.proposer?.metadata?.name || "dApp"}</p>
           <p className="text-xs text-[var(--dw-muted)]">{proposal?.params?.proposer?.metadata?.url}</p>
         </div>
         <div className="dw-glass mt-4 space-y-2 rounded-2xl p-4 text-sm">
-          <div className="flex justify-between"><span className="text-[var(--dw-muted)]">เครือข่าย</span><span className="font-medium">Danny Chain (5069)</span></div>
-          <div className="flex justify-between"><span className="text-[var(--dw-muted)]">บัญชี</span><span className="font-medium">{address ? shortAddress(address) : "—"}</span></div>
+          <div className="flex justify-between"><span className="text-[var(--dw-muted)]">{t("common.network")}</span><span className="font-medium">Danny Chain (5069)</span></div>
+          <div className="flex justify-between"><span className="text-[var(--dw-muted)]">{t("tx.account")}</span><span className="font-medium">{address ? shortAddress(address) : "—"}</span></div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <button onClick={reject} className="dw-btn-ghost rounded-2xl py-3.5 font-semibold">ปฏิเสธ</button>
-          <button onClick={approve} disabled={busy} className="dw-btn-primary rounded-2xl py-3.5 font-semibold">อนุมัติ</button>
+          <button onClick={reject} className="dw-btn-ghost rounded-2xl py-3.5 font-semibold">{t("connect.reject")}</button>
+          <button onClick={approve} disabled={busy} className="dw-btn-primary rounded-2xl py-3.5 font-semibold">{t("connect.approve")}</button>
         </div>
       </Sheet>
 
       {/* ยืนยันคำขอเซ็น */}
-      <Sheet open={!!request} onClose={denyRequest} title="คำขอลงนาม">
+      <Sheet open={!!request} onClose={denyRequest} title={t("connect.signRequestTitle")}>
         <div className="dw-glass flex items-start gap-2 rounded-2xl border-[var(--dw-amber)]/30 bg-[var(--dw-amber)]/[0.06] p-3.5 text-xs text-[var(--dw-muted)]">
           <Warn size={16} className="mt-0.5 shrink-0 text-[var(--dw-amber)]" />
-          ตรวจสอบสิ่งที่จะลงนามให้ดี — การลงนามอาจอนุญาตให้ dApp ทำธุรกรรมแทนคุณ
+          {t("connect.signReview")}
         </div>
         <div className="dw-glass mt-3 rounded-2xl p-4 text-sm">
           <p className="break-words">
             {request ? describeRequest(request.params?.request?.method, request.params?.request?.params || []) : ""}
           </p>
         </div>
+        {request && isUnlimitedApproval(request.params?.request?.method, request.params?.request?.params || []) && (
+          <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-2xl border border-[var(--dw-rose)]/40 bg-[var(--dw-rose)]/[0.08] p-3.5 text-xs text-[var(--dw-rose)]">
+            <input
+              type="checkbox"
+              checked={ackUnlimited}
+              onChange={(e) => setAckUnlimited(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--dw-rose)]"
+            />
+            <span>{t("connect.unlimitedAck")}</span>
+          </label>
+        )}
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <button onClick={denyRequest} className="dw-btn-ghost rounded-2xl py-3.5 font-semibold">ปฏิเสธ</button>
-          <button onClick={confirmRequest} disabled={busy} className="dw-btn-primary rounded-2xl py-3.5 font-semibold">
-            <Check size={16} className="mr-1 inline" /> ยืนยันเซ็น
+          <button onClick={denyRequest} className="dw-btn-ghost rounded-2xl py-3.5 font-semibold">{t("connect.reject")}</button>
+          <button
+            onClick={confirmRequest}
+            disabled={busy || (!!request && isUnlimitedApproval(request.params?.request?.method, request.params?.request?.params || []) && !ackUnlimited)}
+            className="dw-btn-primary rounded-2xl py-3.5 font-semibold disabled:opacity-50"
+          >
+            <Check size={16} className="mr-1 inline" /> {t("connect.confirmSign")}
           </button>
         </div>
       </Sheet>

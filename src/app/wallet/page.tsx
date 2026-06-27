@@ -7,17 +7,25 @@ import { useWallet } from "@/lib/wallet/wallet-store";
 import { Screen } from "@/components/wallet/PhoneShell";
 import { SecurityBadge } from "@/components/wallet/SecurityBadge";
 import { DannyLogo } from "@/components/wallet/DannyLogo";
+import { useI18n } from "@/lib/wallet/i18n";
 import { Shield, Lock, Fingerprint, Plus, ChevronRight } from "@/components/wallet/Icons";
 
 const FEATURES = [
-  { Icon: Shield, title: "ไม่เก็บตัวกลาง", desc: "คุณคือเจ้าของกุญแจเพียงผู้เดียว" },
-  { Icon: Lock, title: "เข้ารหัสในเครื่อง", desc: "ล็อกด้วย PIN และตั้งเวลาออโต้ล็อก" },
-  { Icon: Fingerprint, title: "ยืนยันชีวมิติ", desc: "ปลดล็อกเร็วด้วยลายนิ้วมือ/ใบหน้า" },
+  { Icon: Shield, title: "feature.nonCustodial.title", desc: "feature.nonCustodial.desc" },
+  { Icon: Lock, title: "feature.encrypted.title", desc: "feature.encrypted.desc" },
+  { Icon: Fingerprint, title: "feature.biometric.title", desc: "feature.biometric.desc" },
 ];
 
 export default function WalletWelcome() {
   const router = useRouter();
+  const { t } = useI18n();
   const { hydrated, created, locked } = useWallet();
+
+  // ฝังใน iframe (dannywallet.com/webwallet) = "Desktop Wallet" · เปิดตรง (app.dannywallet.com/wallet) = "Browser Wallet"
+  const [embedded, setEmbedded] = React.useState(false);
+  React.useEffect(() => {
+    try { setEmbedded(window.self !== window.top); } catch { setEmbedded(true); }
+  }, []);
 
   React.useEffect(() => {
     if (!hydrated) return;
@@ -41,23 +49,28 @@ export default function WalletWelcome() {
             <span className="dw-text-grad">Danny</span> Wallet
           </h1>
           <p className="mt-2 max-w-[260px] text-sm text-[var(--dw-muted)]">
-            กระเป๋าคริปโตที่สวย ปลอดภัย และเร็ว สำหรับเครือข่าย Danny Chain
+            {t("welcome.subtitle")}
           </p>
           <div className="mt-4">
-            <SecurityBadge label="ออกแบบเพื่อความปลอดภัย" />
+            <SecurityBadge label={t("welcome.securityBadge")} />
           </div>
         </div>
 
+        {/* หัวข้อ — เหนือการ์ดจุดเด่น (แยกตามช่องทาง: ฝัง iframe = Desktop, เปิดตรง = Browser) */}
+        <h2 className="dw-text-grad mb-4 mt-8 text-center text-3xl font-bold sm:text-4xl lg:mt-0">
+          {embedded ? "Desktop Wallet" : "Browser Wallet"}
+        </h2>
+
         {/* จุดเด่น */}
-        <div className="mt-8 w-full space-y-2.5 lg:mt-0">
+        <div className="w-full space-y-2.5">
           {FEATURES.map(({ Icon, title, desc }) => (
             <div key={title} className="dw-glass flex items-center gap-3 rounded-2xl px-4 py-3 text-left">
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--dw-violet)]/15 text-[var(--dw-purple)]">
                 <Icon size={20} />
               </span>
               <div>
-                <p className="text-sm font-semibold">{title}</p>
-                <p className="text-xs text-[var(--dw-muted)]">{desc}</p>
+                <p className="text-sm font-semibold">{t(title)}</p>
+                <p className="text-xs text-[var(--dw-muted)]">{t(desc)}</p>
               </div>
             </div>
           ))}
@@ -70,16 +83,16 @@ export default function WalletWelcome() {
           href="/wallet/create"
           className="dw-btn-primary flex items-center justify-center gap-2 rounded-2xl py-4 text-base font-semibold"
         >
-          <Plus size={20} /> สร้างกระเป๋าใหม่
+          <Plus size={20} /> {t("common.createWallet")}
         </Link>
         <Link
           href="/wallet/import"
           className="dw-btn-ghost flex items-center justify-center gap-2 rounded-2xl py-4 text-base font-semibold"
         >
-          นำเข้ากระเป๋าเดิม <ChevronRight size={18} />
+          {t("common.importWallet")} <ChevronRight size={18} />
         </Link>
-        <p className="pt-1 text-center text-[11px] leading-relaxed text-[var(--dw-muted)]">
-          เดโม UI — ไม่ใช่เงินจริง ไม่มีการสร้างกุญแจจริงหรือเชื่อมต่อเครือข่าย
+        <p className="pt-1 text-center text-[10px] font-normal leading-relaxed text-[var(--dw-muted)]">
+          Desktop wallet, Fast secure low fee on DannyChain
         </p>
       </div>
     </Screen>

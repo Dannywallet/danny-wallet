@@ -6,8 +6,10 @@ import type { Token } from "@/lib/wallet/mock-data";
 import { formatUsd, formatToken, formatChange } from "@/lib/wallet/format";
 import { TokenIcon } from "./TokenIcon";
 import { Sparkline } from "./Sparkline";
+import { useI18n } from "@/lib/wallet/i18n";
 
 export function TokenRow({ token, hidden }: { token: Token; hidden: boolean }) {
+  const { t } = useI18n();
   const up = token.change24h >= 0;
   const value = token.balance * token.priceUsd;
   return (
@@ -21,7 +23,7 @@ export function TokenRow({ token, hidden }: { token: Token; hidden: boolean }) {
           <p className="truncate font-semibold">{token.symbol}</p>
           {token.isNative && (
             <span className="rounded-full bg-[var(--dw-violet)]/20 px-1.5 py-0.5 text-[9px] text-[var(--dw-purple)]">
-              เนทีฟ
+              {t("common.native")}
             </span>
           )}
         </div>

@@ -7,11 +7,13 @@ import { Screen } from "@/components/wallet/PhoneShell";
 import { PinPad, PinDots } from "@/components/wallet/PinPad";
 import { DannyLogo } from "@/components/wallet/DannyLogo";
 import { Shield, Warn } from "@/components/wallet/Icons";
+import { useI18n } from "@/lib/wallet/i18n";
 
 const MAX_ATTEMPTS = 10;
 
 export default function Unlock() {
   const router = useRouter();
+  const { t } = useI18n();
   const { hydrated, created, unlock, failedAttempts, lockedUntil } = useWallet();
   const [pin, setPin] = React.useState("");
   const [err, setErr] = React.useState<string | null>(null);
@@ -48,7 +50,7 @@ export default function Unlock() {
     } catch (e) {
       setBusy(false);
       setPin("");
-      setErr("เกิดข้อผิดพลาดในการปลดล็อก");
+      setErr(t("unlock.error"));
       setTimeout(() => setErr(null), 1500);
       return;
     }
@@ -59,15 +61,15 @@ export default function Unlock() {
     }
     setPin("");
     if (res.wiped) {
-      setErr("ใส่ PIN ผิดเกินกำหนด — กระเป๋าถูกล้างเพื่อความปลอดภัย");
+      setErr(t("unlock.wiped"));
       setTimeout(() => router.replace("/wallet"), 1800);
       return;
     }
     if (res.cooldownMs && res.cooldownMs > 0) {
       setCooldown(Math.ceil(res.cooldownMs / 1000));
-      setErr("ใส่ผิดหลายครั้ง — กรุณารอสักครู่");
+      setErr(t("unlock.cooldownMsg"));
     } else {
-      setErr("PIN ไม่ถูกต้อง");
+      setErr(t("tx.pinWrong"));
     }
     setTimeout(() => setErr(null), 1500);
   };
@@ -86,9 +88,9 @@ export default function Unlock() {
       <div className="dw-float relative mb-6 lg:hidden">
         <DannyLogo size={88} />
       </div>
-      <h1 className="text-xl font-semibold">ยินดีต้อนรับกลับ</h1>
+      <h1 className="text-xl font-semibold">{t("unlock.welcomeBack")}</h1>
       <p className="mt-1 flex items-center gap-1.5 text-sm text-[var(--dw-muted)]">
-        <Shield size={14} className="text-[var(--dw-green)]" /> ใส่ PIN เพื่อปลดล็อก
+        <Shield size={14} className="text-[var(--dw-green)]" /> {t("unlock.enterPinToUnlock")}
       </p>
 
       <div className="my-8">
@@ -98,12 +100,12 @@ export default function Unlock() {
         )}
         {cooldown > 0 && (
           <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-[var(--dw-amber)]">
-            <Warn size={13} /> รอ {cooldown} วินาทีก่อนลองใหม่
+            <Warn size={13} /> {t("unlock.waitPre")} {cooldown} {t("unlock.waitSuf")}
           </p>
         )}
         {failedAttempts >= 3 && cooldown === 0 && attemptsLeft > 0 && (
           <p className="mt-2 text-center text-[11px] text-[var(--dw-muted)]">
-            เหลืออีก {attemptsLeft} ครั้งก่อนกระเป๋าถูกล้าง
+            {t("unlock.attemptsPre")} {attemptsLeft} {t("unlock.attemptsSuf")}
           </p>
         )}
       </div>
@@ -113,7 +115,7 @@ export default function Unlock() {
       </div>
 
       <p className="mt-6 flex items-center gap-1.5 text-[11px] text-[var(--dw-muted)]">
-        <Shield size={12} /> seed เข้ารหัส AES-256 · PIN ไม่ถูกเก็บแบบข้อความ
+        <Shield size={12} /> {t("unlock.seedNote")}
       </p>
     </Screen>
   );

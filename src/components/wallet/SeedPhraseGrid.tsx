@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useI18n } from "@/lib/wallet/i18n";
 
 export function SeedPhraseGrid({ words }: { words: string[] }) {
   return (
@@ -28,6 +29,7 @@ export function SeedConfirm({
   ask: number[]; // index ที่ต้องเลือก
   onComplete: (ok: boolean) => void;
 }) {
+  const { t } = useI18n();
   const [step, setStep] = React.useState(0);
   const [wrong, setWrong] = React.useState<string | null>(null);
 
@@ -55,8 +57,8 @@ export function SeedConfirm({
   return (
     <div>
       <p className="text-center text-sm text-[var(--dw-muted)]">
-        แตะคำลำดับที่{" "}
-        <span className="font-semibold text-white">#{ask[step] + 1}</span> เพื่อยืนยัน
+        {t("seed.tapWordPre")}{" "}
+        <span className="font-semibold text-[var(--dw-text)]">{ask[step] + 1}</span> {t("seed.tapWordSuf")}
       </p>
       <div className="mt-4 grid grid-cols-1 gap-2.5">
         {options.map((w) => (

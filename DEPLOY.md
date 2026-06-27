@@ -26,7 +26,6 @@ cd /opt/danny-wallet && bash setup-vps.sh
 # 4) Edit .env
 nano .env
 #   DOMAIN=dannywallet.com
-#   LISTING_ADMIN_KEY=<your secret>
 #   NEXT_PUBLIC_WC_PROJECT_ID=<yours, if used>
 
 # 5) Run the script again (build + start)
@@ -58,8 +57,6 @@ git clone <repo> /opt/danny-wallet && cd /opt/danny-wallet
 Edit the `.env` file:
 ```
 NEXT_PUBLIC_WC_PROJECT_ID="<your project id>"
-LISTING_ADMIN_KEY="<secret — do not use the default>"
-LISTING_NOTIFY_WEBHOOK=""              # add a Discord/Slack webhook if you want notifications
 DOMAIN=wallet.yourdomain.com           # the real domain already pointed at the VPS
 ```
 
@@ -79,7 +76,7 @@ docker compose up -d --build      # update/rebuild after code changes
 ```
 
 ## Persistent data & backups
-- Listing requests + approved logos are stored in **`./data`** (mounted as a volume — survives rebuilds)
+- Any runtime data is stored in **`./data`** (mounted as a volume — survives rebuilds)
 - Backup: `tar czf data-backup.tgz data/`
 
 ## CI/CD — GitHub Actions (automated)
