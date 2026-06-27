@@ -37,9 +37,9 @@ export async function getWeb3Wallet(): Promise<IWeb3Wallet> {
         core: core as unknown as Parameters<typeof Web3Wallet.init>[0]["core"],
         metadata: {
           name: "Danny Wallet",
-          description: "กระเป๋าคริปโตบน Danny Chain (5069)",
-          url: "https://dannychain.com",
-          icons: ["https://dannyscan.com/favicon.ico"],
+          description: "Self-custody wallet for Danny Chain (5069)",
+          url: "https://app.dannywallet.com",
+          icons: ["https://dannywallet.com/logo-src.png"],
         },
       });
       return instance;
