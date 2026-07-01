@@ -32,8 +32,9 @@ export function TxRow({ tx }: { tx: Tx }) {
   const { t } = useI18n();
   const m = META[tx.type];
   const s = STATUS[tx.status];
-  return (
-    <div className="dw-glass flex items-center gap-3 rounded-2xl px-3.5 py-3">
+  const cls = "dw-glass flex items-center gap-3 rounded-2xl px-3.5 py-3";
+  const body = (
+    <>
       <span
         className="grid h-10 w-10 place-items-center rounded-full"
         style={{ background: `${m.color}1f`, color: m.color }}
@@ -63,6 +64,18 @@ export function TxRow({ tx }: { tx: Tx }) {
           <p className={`text-[11px] ${s.cls}`}>{t(s.labelKey)}</p>
         )}
       </div>
-    </div>
+    </>
+  );
+  return tx.hash ? (
+    <a
+      href={`https://dannyscan.com/tx/${tx.hash}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`${cls} transition hover:bg-white/[0.06] active:scale-[0.99]`}
+    >
+      {body}
+    </a>
+  ) : (
+    <div className={cls}>{body}</div>
   );
 }

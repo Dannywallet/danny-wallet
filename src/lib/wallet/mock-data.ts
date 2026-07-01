@@ -105,6 +105,7 @@ export function totalChange24h(): number {
 
 export type Tx = {
   id: string;
+  hash?: string; // tx hash จริง — สำหรับลิงก์ไป block explorer (dannyscan)
   type: "send" | "receive" | "swap";
   token: string;
   toToken?: string;

@@ -80,6 +80,7 @@ export async function GET(req: Request) {
         const price = prices.get((t.token?.address || "").toLowerCase())?.priceUsd ?? null;
         return {
           id: `${t.tx_hash}-tt${i}`,
+          hash: t.tx_hash,
           type: isOut ? "send" : "receive",
           token: t.token.symbol || "?",
           amount: amt,
@@ -99,6 +100,7 @@ export async function GET(req: Request) {
         const amt = amount(t.value, "18");
         return {
           id: `${t.hash}-nt${i}`,
+          hash: t.hash,
           type: isOut ? "send" : "receive",
           token: "DAN",
           amount: amt,

@@ -941,7 +941,7 @@ function ActivityView({ address }: { address: string | null }) {
               const inbound = t.type === "receive";
               const Icon = t.type === "swap" ? SwapIcon : inbound ? ArrowDown : ArrowUp;
               return (
-                <a key={t.id} href={explorerTx(t.id)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-3 py-3 transition hover:bg-white/[0.03]">
+                <a key={t.id} href={explorerTx(t.hash ?? "")} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-3 py-3 transition hover:bg-white/[0.03]">
                   <span className={`grid h-10 w-10 place-items-center rounded-full ${inbound ? "bg-[var(--dw-green)]/15 text-[var(--dw-green)]" : t.type === "swap" ? "bg-[var(--dw-violet)]/15 text-[var(--dw-cyan)]" : "bg-white/[0.06] text-[var(--dw-muted)]"}`}><Icon size={17} /></span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">
