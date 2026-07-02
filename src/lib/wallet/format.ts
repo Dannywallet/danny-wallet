@@ -45,3 +45,9 @@ export function isLikelyAddress(addr: string): boolean {
 export function hidden(value: string, on: boolean): string {
   return on ? "••••••" : value;
 }
+
+/** แปลชื่อบัญชีเริ่มต้น ("บัญชี N" / "Account N" …) ให้ตรงภาษาปัจจุบัน — ชื่อที่ผู้ใช้ตั้งเองไม่แตะ */
+export function accountLabel(name: string, accountWord: string): string {
+  const m = (name || "").match(/^(?:บัญชี|Account|Tài khoản|账户)\s*(\d+)$/);
+  return m ? `${accountWord} ${m[1]}` : name;
+}

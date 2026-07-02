@@ -8,7 +8,7 @@ import { useSwapTokens, type WToken } from "@/lib/wallet/use-holdings";
 import { useTxAlerts } from "@/lib/wallet/use-tx-alerts";
 import { executeSwap, estimateSwapFee, executeSend, estimateSendFee, explorerTx, clearStuckTransactions, getStuckCount } from "@/lib/wallet/dandex-swap";
 import { CHAIN, type Tx } from "@/lib/wallet/mock-data";
-import { formatUsd, formatToken, shortAddress } from "@/lib/wallet/format";
+import { formatUsd, formatToken, shortAddress, accountLabel } from "@/lib/wallet/format";
 import type { Holding } from "@/app/api/danny/portfolio/route";
 import type { DannyToken } from "@/app/api/danny/tokens/route";
 import { WDAN } from "@/lib/wallet/danny-prices";
@@ -272,9 +272,9 @@ function AccountSwitcherSidebar() {
     <div ref={ref} className="relative my-5">
       <div className="flex w-full items-center gap-1 rounded-2xl border border-[var(--dw-border)] bg-white/[0.04] px-3 py-2.5 transition hover:bg-white/[0.07]">
         <button onClick={() => { setOpen((v) => !v); setMenuOpen(false); }} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-xs font-bold text-white">{(active?.name || tr("tx.account"))[0]}</span>
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-xs font-bold text-white">{accountLabel(active?.name || tr("tx.account"), tr("tx.account"))[0]}</span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold">{active?.name || tr("tx.account")}</span>
+            <span className="block truncate text-sm font-semibold">{accountLabel(active?.name || tr("tx.account"), tr("tx.account"))}</span>
             <span className="block text-[11px] text-[var(--dw-muted)]">{address ? shortAddress(address) : ""}</span>
           </span>
           <ChevronRight size={15} className={`text-[var(--dw-muted)] transition-transform ${open ? "rotate-90" : ""}`} />
@@ -306,9 +306,9 @@ function AccountSwitcherSidebar() {
             {accounts.map((a, i) => (
               <button key={a.address} onClick={() => { switchAccount(i); setOpen(false); }}
                 className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition ${i === activeIndex ? "bg-[var(--dw-violet)]/20" : "hover:bg-white/[0.06]"}`}>
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-[11px] font-bold text-white">{(a.name || tr("tx.account"))[0]}</span>
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-[11px] font-bold text-white">{accountLabel(a.name || tr("tx.account"), tr("tx.account"))[0]}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{a.name}</span>
+                  <span className="block truncate text-sm font-medium">{accountLabel(a.name, tr("tx.account"))}</span>
                   <span className="block text-[10px] text-[var(--dw-muted)]">{shortAddress(a.address)}</span>
                 </span>
                 {i === activeIndex && <Check size={14} className="text-[var(--dw-green)]" />}
@@ -1062,7 +1062,7 @@ function ReceiveView({ address, name }: { address: string | null; name?: string 
     <div className="dw-rise mx-auto max-w-md space-y-6">
       <Header title={tr("receive.title")} />
       <div className="dw-glass flex flex-col items-center rounded-3xl p-8 text-center">
-        <p className="text-sm text-[var(--dw-muted)]">{tr("receive.scanCopyPre")} {name || tr("tx.account")} {tr("receive.scanCopyMid")} {CHAIN.name}</p>
+        <p className="text-sm text-[var(--dw-muted)]">{tr("receive.scanCopyPre")} {accountLabel(name || tr("tx.account"), tr("tx.account"))} {tr("receive.scanCopyMid")} {CHAIN.name}</p>
         <div className="mt-6 rounded-2xl bg-white p-4">{address && <QrCode value={address} size={220} />}</div>
         <p className="mt-6 break-all rounded-2xl bg-white/[0.04] px-4 py-3 font-mono text-sm">{address}</p>
         <button onClick={copy} className="dw-btn-primary mt-4 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold">

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { formatUsd, formatChange } from "@/lib/wallet/format";
+import { formatUsd, formatChange, accountLabel } from "@/lib/wallet/format";
 import { shortAddress } from "@/lib/wallet/format";
 import { Eye, EyeOff, ChevronRight } from "./Icons";
 import { useI18n } from "@/lib/wallet/i18n";
@@ -38,7 +38,7 @@ export function BalanceCard({
           onClick={onAccountClick}
           className="dw-btn-ghost flex min-w-0 max-w-[78%] items-center gap-1.5 rounded-full px-3 py-1 text-xs"
         >
-          <span className="shrink-0 font-medium text-[var(--dw-text)]">{accountName || t("tx.account")}</span>
+          <span className="shrink-0 font-medium text-[var(--dw-text)]">{accountLabel(accountName || t("tx.account"), t("tx.account"))}</span>
           <span className="truncate text-[var(--dw-muted)]">{address ? shortAddress(address) : "—"}</span>
           <ChevronRight size={13} className="shrink-0 text-[var(--dw-muted)]" />
         </button>

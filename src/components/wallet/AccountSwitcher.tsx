@@ -4,7 +4,7 @@
 import React from "react";
 import { Sheet } from "./Sheet";
 import { useWallet } from "@/lib/wallet/wallet-store";
-import { shortAddress } from "@/lib/wallet/format";
+import { shortAddress, accountLabel } from "@/lib/wallet/format";
 import { copyEphemeral } from "@/lib/wallet/clipboard";
 import { Check, Plus, Warn, Copy } from "./Icons";
 import { useI18n } from "@/lib/wallet/i18n";
@@ -171,7 +171,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
         <div>
           <div className="dw-glass mb-3 flex items-start gap-2.5 rounded-2xl border-[var(--dw-rose)]/30 bg-[var(--dw-rose)]/[0.06] p-3.5 text-xs text-[var(--dw-muted)]">
             <Warn size={16} className="mt-0.5 shrink-0 text-[var(--dw-rose)]" />
-            {t("acct.exportWarnPre")} <span className="font-semibold text-[var(--dw-text)]">{accounts[exportIdx]?.name}</span> {t("acct.exportWarnSuf")}
+            {t("acct.exportWarnPre")} <span className="font-semibold text-[var(--dw-text)]">{accountLabel(accounts[exportIdx]?.name || "", t("tx.account"))}</span> {t("acct.exportWarnSuf")}
           </div>
           {!exportKey ? (
             <>
@@ -249,7 +249,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
                       />
                     ) : (
                       <p className="flex items-center gap-1.5 truncate text-sm font-medium">
-                        {a.name}
+                        {accountLabel(a.name, t("tx.account"))}
                         {a.enc && (
                           <span className="rounded bg-[var(--dw-amber)]/20 px-1 text-[9px] text-[var(--dw-amber)]">{t("acct.importedTag")}</span>
                         )}
@@ -277,7 +277,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
                 {accounts.length > 1 && (
                   <button
                     onClick={() => {
-                      if (confirm(`${t("acct.deletePrefix")} "${a.name}" ?${a.enc ? "\n" + t("acct.deleteImportedNote") : ""}`)) removeAccount(i);
+                      if (confirm(`${t("acct.deletePrefix")} "${accountLabel(a.name, t("tx.account"))}" ?${a.enc ? "\n" + t("acct.deleteImportedNote") : ""}`)) removeAccount(i);
                     }}
                     className="shrink-0 text-xs text-[var(--dw-rose)] hover:opacity-80"
                   >
