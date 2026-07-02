@@ -10,6 +10,8 @@ import { executeSwap, estimateSwapFee, executeSend, estimateSendFee, explorerTx,
 import { CHAIN, type Tx } from "@/lib/wallet/mock-data";
 import { formatUsd, formatToken, shortAddress } from "@/lib/wallet/format";
 import type { Holding } from "@/app/api/danny/portfolio/route";
+import type { DannyToken } from "@/app/api/danny/tokens/route";
+import { WDAN } from "@/lib/wallet/danny-prices";
 import { TokenIcon } from "@/components/wallet/TokenIcon";
 import { DannyLogo } from "@/components/wallet/DannyLogo";
 import { LanguageToggle } from "@/components/wallet/LanguageToggle";
@@ -458,6 +460,7 @@ function PortfolioView({ address, balanceHidden, toggleBalance, onGoto }: {
   const [pf, setPf] = React.useState<Portfolio | null>(null);
   const [state, setState] = React.useState<"loading" | "ok" | "error">("loading");
   const [showHidden, setShowHidden] = React.useState(false);
+  const [detail, setDetail] = React.useState<Holding | null>(null);
 
   const load = React.useCallback(() => {
     if (!address) return;
@@ -535,8 +538,8 @@ function PortfolioView({ address, balanceHidden, toggleBalance, onGoto }: {
               </tr>
             </thead>
             <tbody>
-              {visible.map((h) => <HoldingRow key={h.address ?? "native"} h={h} hidden={balanceHidden} />)}
-              {showHidden && hidden.map((h) => <HoldingRow key={h.address ?? "native"} h={h} hidden={balanceHidden} />)}
+              {visible.map((h) => <HoldingRow key={h.address ?? "native"} h={h} hidden={balanceHidden} onOpen={setDetail} />)}
+              {showHidden && hidden.map((h) => <HoldingRow key={h.address ?? "native"} h={h} hidden={balanceHidden} onOpen={setDetail} />)}
             </tbody>
           </table>
         )}
@@ -546,16 +549,18 @@ function PortfolioView({ address, balanceHidden, toggleBalance, onGoto }: {
           </button>
         )}
       </div>
+
+      {detail && <CoinDetailModal holding={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }
 
-function HoldingRow({ h, hidden }: { h: Holding; hidden: boolean }) {
+function HoldingRow({ h, hidden, onOpen }: { h: Holding; hidden: boolean; onOpen: (h: Holding) => void }) {
   const { t: tr } = useI18n();
   const g = gradientFor(h.address || h.symbol);
   const up = (h.change24h ?? 0) >= 0;
   return (
-    <tr className="border-t border-[var(--dw-border)]/60 transition hover:bg-white/[0.03]">
+    <tr onClick={() => onOpen(h)} className="cursor-pointer border-t border-[var(--dw-border)]/60 transition hover:bg-white/[0.05]">
       <td className="px-3 py-3">
         <div className="flex items-center gap-3">
           <TokenIcon symbol={h.symbol} gradient={g} logo={h.logo} size={34} />
@@ -576,6 +581,111 @@ function HoldingRow({ h, hidden }: { h: Holding; hidden: boolean }) {
         {h.change24h == null ? "—" : `${up ? "+" : ""}${h.change24h.toFixed(2)}%`}
       </td>
     </tr>
+  );
+}
+
+function compact(n: number): string {
+  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 }).format(n);
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--dw-border)] bg-white/[0.03] p-3">
+      <p className="text-xs text-[var(--dw-muted)]">{label}</p>
+      <p className="mt-1 font-semibold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+/* ---------- coin detail modal: กราฟ + รายละเอียดการเทรด (คลิกเหรียญในตาราง) ---------- */
+function CoinDetailModal({ holding, onClose }: { holding: Holding; onClose: () => void }) {
+  const { t: tr } = useI18n();
+  const [market, setMarket] = React.useState<DannyToken | null>(null);
+  const [chart, setChart] = React.useState<ChartPoint[] | null>(null);
+  const [chartState, setChartState] = React.useState<"loading" | "ok" | "empty">("loading");
+  const [chartType, setChartType] = React.useState<"candle" | "line">("candle");
+  const [range, setRange] = React.useState<"1h" | "24h" | "7d">("24h");
+  const up = (holding.change24h ?? 0) >= 0;
+  const g = gradientFor(holding.address || holding.symbol);
+
+  React.useEffect(() => {
+    let alive = true;
+    const matchId = holding.isNative ? WDAN.toLowerCase() : (holding.address || "").toLowerCase();
+    fetch("/api/danny/tokens").then((r) => r.json())
+      .then((tk: { tokens?: DannyToken[] }) => { if (alive) setMarket((tk.tokens || []).find((x) => (x.address || "").toLowerCase() === matchId) || null); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [holding]);
+
+  React.useEffect(() => {
+    const pair = market?.pair ?? (holding.isNative ? WDAN_USDT_PAIR : null);
+    if (!pair) { setChartState("empty"); return; }
+    let alive = true;
+    setChartState("loading");
+    fetch(`/api/danny/chart?pair=${pair}&range=${range}`).then((r) => r.json())
+      .then((j: { points?: ChartPoint[] }) => {
+        if (!alive) return;
+        if (j.points && j.points.length >= 2) { setChart(j.points); setChartState("ok"); }
+        else setChartState("empty");
+      })
+      .catch(() => alive && setChartState("empty"));
+    return () => { alive = false; };
+  }, [market, holding, range]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div onClick={(e) => e.stopPropagation()} className="dw-glass-strong relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--dw-border)] p-6 shadow-2xl" style={{ background: "var(--dw-popover)" }}>
+        <div className="flex items-center gap-3">
+          <TokenIcon symbol={holding.symbol} gradient={g} logo={holding.logo} size={40} />
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-2 text-lg font-bold">
+              {holding.symbol}
+              {holding.isNative && <span className="rounded-full bg-[var(--dw-violet)]/20 px-1.5 py-0.5 text-[9px] text-[var(--dw-purple)]">{tr("common.native")}</span>}
+            </p>
+            <p className="truncate text-xs text-[var(--dw-muted)]">{holding.name}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-bold tabular-nums">{fmtPrice(holding.priceUsd)}</p>
+            <p className={`text-xs font-medium ${holding.change24h == null ? "text-[var(--dw-muted)]" : up ? "text-[var(--dw-green)]" : "text-[var(--dw-rose)]"}`}>
+              {holding.change24h == null ? "—" : `${up ? "▲" : "▼"} ${Math.abs(holding.change24h).toFixed(2)}%`}
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="close" className="dw-btn-ghost ml-2 grid h-8 w-8 shrink-0 place-items-center rounded-full text-[var(--dw-muted)]">✕</button>
+        </div>
+
+        <div className="mt-5 flex items-center justify-between">
+          <div className="flex gap-1">
+            {(["candle", "line"] as const).map((ct) => (
+              <button key={ct} onClick={() => setChartType(ct)} className={`rounded-lg px-2.5 py-1 text-[11px] font-medium ${chartType === ct ? "dw-btn-primary" : "dw-btn-ghost text-[var(--dw-muted)]"}`}>{ct === "candle" ? tr("chart.candle") : tr("chart.line")}</button>
+            ))}
+          </div>
+          <div className="flex gap-1">
+            {(["1h", "24h", "7d"] as const).map((r) => (
+              <button key={r} onClick={() => setRange(r)} className={`rounded-lg px-2.5 py-1 text-[11px] font-medium ${range === r ? "dw-btn-primary" : "dw-btn-ghost text-[var(--dw-muted)]"}`}>{r}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="dw-glass mt-3 overflow-hidden rounded-2xl p-2">
+          {chartState === "loading" ? <div className="dw-shimmer h-[240px] rounded-xl" />
+            : chartState === "ok" && chart ? (chartType === "candle" ? <CandleChart points={chart} /> : <PriceChart points={chart} up={up} />)
+              : <div className="flex h-[200px] items-center justify-center text-center text-xs text-[var(--dw-muted)]">{tr("asset.noChartData")}</div>}
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <Stat label={tr("asset.marketCap")} value={market?.marketCap ? `$${compact(market.marketCap)}` : "—"} />
+          <Stat label={tr("asset.vol24h")} value={market?.vol24hUSD != null ? `$${compact(market.vol24hUSD)}` : "—"} />
+          <Stat label={tr("asset.holders")} value={market?.holders ? compact(market.holders) : "—"} />
+          <Stat label={tr("asset.totalSupply")} value={market?.totalSupply ? compact(market.totalSupply) : "—"} />
+        </div>
+
+        <div className="mt-3 flex items-center justify-between rounded-2xl border border-[var(--dw-border)] bg-white/[0.03] px-4 py-3 text-sm">
+          <span className="text-[var(--dw-muted)]">{tr("table.holding")}</span>
+          <span className="font-semibold tabular-nums">{formatToken(holding.balance)} {holding.symbol}{holding.valueUsd != null ? ` · ${formatUsd(holding.valueUsd)}` : ""}</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
