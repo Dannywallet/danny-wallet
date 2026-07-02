@@ -294,13 +294,13 @@ export default function AssetDetail() {
 
         {/* ปุ่มลัด */}
         <div className="mt-4 grid grid-cols-3 gap-2.5">
-          <Link href="/wallet/send" className="dw-btn-ghost flex flex-col items-center gap-1 rounded-2xl py-3 text-xs">
+          <Link href="/wallet/send" className="dw-btn-primary flex flex-col items-center gap-1 rounded-2xl py-3 text-xs text-white">
             <ArrowUp size={20} /> {tr("common.send")}
           </Link>
-          <Link href="/wallet/receive" className="dw-btn-ghost flex flex-col items-center gap-1 rounded-2xl py-3 text-xs">
+          <Link href="/wallet/receive" className="dw-btn-primary flex flex-col items-center gap-1 rounded-2xl py-3 text-xs text-white">
             <ArrowDown size={20} /> {tr("common.receive")}
           </Link>
-          <Link href="/wallet/swap" className="dw-btn-ghost flex flex-col items-center gap-1 rounded-2xl py-3 text-xs">
+          <Link href="/wallet/swap" className="dw-btn-primary flex flex-col items-center gap-1 rounded-2xl py-3 text-xs text-white">
             <Swap size={20} /> {tr("common.swap")}
           </Link>
         </div>
