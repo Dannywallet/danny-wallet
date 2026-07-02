@@ -241,6 +241,7 @@ function AccountSwitcherSidebar() {
   const [open, setOpen] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
   const [showKey, setShowKey] = React.useState(false);
+  const [menuOpen, setMenuOpen] = React.useState(false);
   const [action, setAction] = React.useState<null | "add" | "create" | "import">(null);
   const [pin, setPin] = React.useState("");
   const [pk, setPk] = React.useState("");
@@ -249,7 +250,7 @@ function AccountSwitcherSidebar() {
   const ref = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setAction(null); setShowKey(false); } };
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setAction(null); setShowKey(false); setMenuOpen(false); } };
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, []);
 
@@ -269,14 +270,35 @@ function AccountSwitcherSidebar() {
 
   return (
     <div ref={ref} className="relative my-5">
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 rounded-2xl border border-[var(--dw-border)] bg-white/[0.04] px-3 py-2.5 text-left transition hover:bg-white/[0.07]">
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-xs font-bold text-white">{(active?.name || tr("tx.account"))[0]}</span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold">{active?.name || tr("tx.account")}</span>
-          <span className="block text-[11px] text-[var(--dw-muted)]">{address ? shortAddress(address) : ""}</span>
-        </span>
-        <ChevronRight size={15} className={`text-[var(--dw-muted)] transition-transform ${open ? "rotate-90" : ""}`} />
-      </button>
+      <div className="flex w-full items-stretch gap-1.5">
+        <button onClick={() => { setOpen((v) => !v); setMenuOpen(false); }} className="flex flex-1 items-center gap-2 rounded-2xl border border-[var(--dw-border)] bg-white/[0.04] px-3 py-2.5 text-left transition hover:bg-white/[0.07]">
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-xs font-bold text-white">{(active?.name || tr("tx.account"))[0]}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold">{active?.name || tr("tx.account")}</span>
+            <span className="block text-[11px] text-[var(--dw-muted)]">{address ? shortAddress(address) : ""}</span>
+          </span>
+          <ChevronRight size={15} className={`text-[var(--dw-muted)] transition-transform ${open ? "rotate-90" : ""}`} />
+        </button>
+        <button onClick={() => { setMenuOpen((v) => !v); setOpen(false); setShowKey(false); }} aria-label="more" className="grid w-9 shrink-0 place-items-center rounded-2xl border border-[var(--dw-border)] bg-white/[0.04] text-[var(--dw-muted)] transition hover:bg-white/[0.07] hover:text-[var(--dw-text)]">
+          <span className="text-base leading-none tracking-widest">⋯</span>
+        </button>
+      </div>
+
+      {menuOpen && (
+        <div className="dw-glass-strong absolute right-0 z-40 mt-2 w-60 rounded-2xl border border-[var(--dw-border)] p-2 shadow-2xl" style={{ background: "var(--dw-popover)" }}>
+          <button onClick={copy} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-[var(--dw-muted)] hover:bg-white/[0.06] hover:text-[var(--dw-text)]">
+            {copied ? <Check size={13} className="text-[var(--dw-green)]" /> : <Copy size={13} />} {tr("acct.copyAddress")}
+          </button>
+          <button onClick={() => setShowKey((v) => !v)} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-[var(--dw-muted)] hover:bg-white/[0.06] hover:text-[var(--dw-text)]">
+            <Eye size={13} /> {tr("acct.revealKey")}
+          </button>
+          {showKey && (
+            <div className="mt-1 border-t border-[var(--dw-border)] px-1.5 pt-2">
+              <SecretReveal label={tr("dset.pkLabel")} hint={tr("dset.pkHint")} onReveal={(pin) => revealPrivateKey(activeIndex, pin)} />
+            </div>
+          )}
+        </div>
+      )}
 
       {open && (
         <div className="dw-glass-strong absolute left-0 right-0 z-40 mt-2 rounded-2xl border border-[var(--dw-border)] p-2 shadow-2xl" style={{ background: "var(--dw-popover)" }}>
@@ -311,14 +333,6 @@ function AccountSwitcherSidebar() {
                 <button onClick={() => startAction("import")} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-[var(--dw-muted)] hover:bg-white/[0.06] hover:text-[var(--dw-text)]">
                   <Plus size={13} /> {tr("acct.importPk")}
                 </button>
-                <button onClick={() => setShowKey((v) => !v)} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-[var(--dw-muted)] hover:bg-white/[0.06] hover:text-[var(--dw-text)]">
-                  <Eye size={13} /> {tr("acct.revealKey")}
-                </button>
-                {showKey && (
-                  <div className="mt-1 border-t border-[var(--dw-border)] px-1.5 pt-2">
-                    <SecretReveal label={tr("dset.pkLabel")} hint={tr("dset.pkHint")} onReveal={(pin) => revealPrivateKey(activeIndex, pin)} />
-                  </div>
-                )}
               </>
             )}
             {action && (
