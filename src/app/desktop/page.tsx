@@ -497,8 +497,8 @@ function PortfolioView({ address, balanceHidden, toggleBalance, onGoto }: {
           </div>
           <div className="mt-6 flex gap-2">
             {([["send", tr("common.send"), ArrowUp], ["receive", tr("common.receive"), ArrowDown], ["swap", tr("common.swap"), SwapIcon]] as const).map(([v, label, Icon]) => (
-              <button key={v} onClick={() => onGoto(v)} className="dw-btn-primary flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-3 text-xs font-medium text-white transition">
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/20 text-white"><Icon size={18} /></span>
+              <button key={v} onClick={() => onGoto(v)} className="dw-btn-ghost flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-3 text-xs font-medium transition hover:bg-white/[0.07]">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--dw-violet)]/15 text-[var(--dw-cyan)]"><Icon size={18} /></span>
                 {label}
               </button>
             ))}
