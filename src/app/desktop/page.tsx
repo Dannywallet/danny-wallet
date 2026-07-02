@@ -270,8 +270,8 @@ function AccountSwitcherSidebar() {
 
   return (
     <div ref={ref} className="relative my-5">
-      <div className="flex w-full items-stretch gap-1.5">
-        <button onClick={() => { setOpen((v) => !v); setMenuOpen(false); }} className="flex flex-1 items-center gap-2 rounded-2xl border border-[var(--dw-border)] bg-white/[0.04] px-3 py-2.5 text-left transition hover:bg-white/[0.07]">
+      <div className="flex w-full items-center gap-1 rounded-2xl border border-[var(--dw-border)] bg-white/[0.04] px-3 py-2.5 transition hover:bg-white/[0.07]">
+        <button onClick={() => { setOpen((v) => !v); setMenuOpen(false); }} className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-xs font-bold text-white">{(active?.name || tr("tx.account"))[0]}</span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold">{active?.name || tr("tx.account")}</span>
@@ -279,7 +279,7 @@ function AccountSwitcherSidebar() {
           </span>
           <ChevronRight size={15} className={`text-[var(--dw-muted)] transition-transform ${open ? "rotate-90" : ""}`} />
         </button>
-        <button onClick={() => { setMenuOpen((v) => !v); setOpen(false); setShowKey(false); }} aria-label="more" className="grid w-9 shrink-0 place-items-center rounded-2xl border border-[var(--dw-border)] bg-white/[0.04] text-[var(--dw-muted)] transition hover:bg-white/[0.07] hover:text-[var(--dw-text)]">
+        <button onClick={() => { setMenuOpen((v) => !v); setOpen(false); setShowKey(false); }} aria-label="more" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[var(--dw-muted)] transition hover:bg-white/[0.10] hover:text-[var(--dw-text)]">
           <span className="text-base leading-none tracking-widest">⋯</span>
         </button>
       </div>
