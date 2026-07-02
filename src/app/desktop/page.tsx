@@ -135,7 +135,7 @@ export default function DesktopWallet() {
         <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-[var(--dw-border)] bg-black/20 px-4 py-5 backdrop-blur-xl">
           <div className="flex items-center gap-2 px-2">
             <DannyLogo size={36} />
-            <span className="text-lg font-bold"><span className="dw-text-grad">Danny</span> Wallet</span>
+            <span className="whitespace-nowrap text-lg font-bold"><span className="dw-text-grad">Danny</span> Wallet</span>
             <button
               onClick={goActivity}
               aria-label={tr("settings.notifications")}
