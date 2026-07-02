@@ -235,9 +235,10 @@ export default function DesktopWallet() {
 /* ---------- sidebar account switcher (multi-account) ---------- */
 function AccountSwitcherSidebar() {
   const { t: tr } = useI18n();
-  const { accounts, activeIndex, address, switchAccount, addAccount, createAccount, importAccount, hasSeed } = useWallet();
+  const { accounts, activeIndex, address, switchAccount, addAccount, createAccount, importAccount, hasSeed, revealPrivateKey } = useWallet();
   const [open, setOpen] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const [showKey, setShowKey] = React.useState(false);
   const [action, setAction] = React.useState<null | "add" | "create" | "import">(null);
   const [pin, setPin] = React.useState("");
   const [pk, setPk] = React.useState("");
@@ -246,7 +247,7 @@ function AccountSwitcherSidebar() {
   const ref = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setAction(null); } };
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setAction(null); setShowKey(false); } };
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, []);
 
@@ -308,6 +309,14 @@ function AccountSwitcherSidebar() {
                 <button onClick={() => startAction("import")} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-[var(--dw-muted)] hover:bg-white/[0.06] hover:text-[var(--dw-text)]">
                   <Plus size={13} /> {tr("acct.importPk")}
                 </button>
+                <button onClick={() => setShowKey((v) => !v)} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-[var(--dw-muted)] hover:bg-white/[0.06] hover:text-[var(--dw-text)]">
+                  <Eye size={13} /> {tr("acct.revealKey")}
+                </button>
+                {showKey && (
+                  <div className="mt-1 border-t border-[var(--dw-border)] px-1.5 pt-2">
+                    <SecretReveal label={tr("dset.pkLabel")} hint={tr("dset.pkHint")} onReveal={(pin) => revealPrivateKey(activeIndex, pin)} />
+                  </div>
+                )}
               </>
             )}
             {action && (
