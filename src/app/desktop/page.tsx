@@ -1420,53 +1420,92 @@ function Toggle({ label, desc, on, onClick }: { label: string; desc: string; on:
 /* ---------- Buy / On-ramp ---------- */
 function BuyModal({ open, onClose, onReceive }: { open: boolean; onClose: () => void; onReceive: () => void }) {
   const { t: tr } = useI18n();
+  const [amount, setAmount] = React.useState("50");
+  const [method, setMethod] = React.useState("card");
+  const [danPrice, setDanPrice] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    fetch("/api/danny/tokens").then((r) => r.json())
+      .then((tk: { tokens?: DannyToken[] }) => {
+        if (!alive) return;
+        const w = (tk.tokens || []).find((x) => (x.address || "").toLowerCase() === WDAN.toLowerCase());
+        setDanPrice(w?.priceUsd ?? null);
+      }).catch(() => {});
+    return () => { alive = false; };
+  }, [open]);
+
   if (!open) return null;
-  const methods: { name: string; note: string; url?: string }[] = [
-    { name: tr("buy.creditCard"), note: tr("buy.comingSoon") },
-    { name: tr("buy.bankTransfer"), note: tr("buy.comingSoon") },
-    { name: tr("buy.bridge"), note: tr("buy.online"), url: "https://dannybridge.com/" },
+  const amt = parseFloat(amount) || 0;
+  const danOut = danPrice && danPrice > 0 ? amt / danPrice : null;
+  const methods: { id: string; name: string; Icon: typeof Card; soon: boolean; url?: string }[] = [
+    { id: "card", name: tr("buy.creditCard"), Icon: Card, soon: true },
+    { id: "promptpay", name: tr("buy.bankTransfer"), Icon: Card, soon: true },
+    { id: "bridge", name: tr("buy.bridge"), Icon: SwapIcon, soon: false, url: "https://dannybridge.com/" },
   ];
+  const sel = methods.find((m) => m.id === method) || methods[0];
+
   return (
     <div className="fixed inset-0 z-[3000] grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="dw-glass-strong w-full max-w-md rounded-3xl border border-[var(--dw-border)] p-6" style={{ background: "var(--dw-popover)" }} onClick={(e) => e.stopPropagation()}>
+      <div className="dw-glass-strong max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[var(--dw-border)] p-6" style={{ background: "var(--dw-popover)" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-white"><Card size={20} /></span>
-          <div><h3 className="text-lg font-semibold">{tr("desktop.buyCrypto")}</h3><p className="text-xs text-[var(--dw-muted)]">{tr("buy.subtitle")}</p></div>
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-white"><Card size={20} /></span>
+          <div className="min-w-0 flex-1"><h3 className="text-lg font-semibold">{tr("desktop.buyCrypto")}</h3><p className="text-xs text-[var(--dw-muted)]">{tr("buy.subtitle")}</p></div>
+          <button onClick={onClose} aria-label="close" className="dw-btn-ghost grid h-8 w-8 shrink-0 place-items-center rounded-full text-[var(--dw-muted)]">✕</button>
         </div>
 
-        <div className="mt-5 space-y-2">
-          {methods.map((p) => {
-            const online = !!p.url;
-            const inner = (
-              <>
-                <span className="text-sm font-medium">{p.name}</span>
-                <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] ${online ? "bg-[var(--dw-green)]/15 text-[var(--dw-green)]" : "bg-[var(--dw-amber)]/15 text-[var(--dw-amber)]"}`}>
-                  {online && <span className="h-1.5 w-1.5 rounded-full bg-[var(--dw-green)] dw-pulse-ring" />}
-                  {p.note}
-                </span>
-              </>
-            );
-            return p.url ? (
-              <a key={p.name} href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between rounded-2xl border border-[var(--dw-border)] bg-white/[0.03] px-4 py-3 transition hover:bg-white/[0.06]">
-                {inner}
-              </a>
-            ) : (
-              <div key={p.name} className="flex items-center justify-between rounded-2xl border border-[var(--dw-border)] bg-white/[0.03] px-4 py-3">
-                {inner}
-              </div>
-            );
-          })}
+        {/* amount + estimate */}
+        <div className="mt-5 rounded-2xl border border-[var(--dw-border)] bg-white/[0.03] p-4">
+          <p className="text-xs text-[var(--dw-muted)]">{tr("swap.pay")} (USD)</p>
+          <div className="mt-1 flex items-center gap-1">
+            <span className="text-2xl font-bold text-[var(--dw-muted)]">$</span>
+            <input value={amount} inputMode="decimal" onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              className="w-full bg-transparent text-3xl font-extrabold tracking-tight outline-none" style={{ color: "var(--dw-text)" }} />
+          </div>
+          <div className="mt-3 flex gap-2">
+            {["20", "50", "100", "500"].map((v) => (
+              <button key={v} onClick={() => setAmount(v)} className={`flex-1 rounded-xl py-1.5 text-xs font-semibold transition ${amount === v ? "dw-btn-primary" : "dw-btn-ghost text-[var(--dw-muted)]"}`}>${v}</button>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-[var(--dw-border)] pt-3">
+            <span className="text-xs text-[var(--dw-muted)]">{tr("swap.estValue")}</span>
+            <span className="font-bold tabular-nums dw-text-grad">≈ {danOut != null ? formatToken(danOut) : "—"} DAN</span>
+          </div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-[var(--dw-green)]/25 bg-[var(--dw-green)]/[0.06] p-4">
+        {/* payment methods */}
+        <div className="mt-4 space-y-2">
+          {methods.map((m) => (
+            <button key={m.id} onClick={() => setMethod(m.id)}
+              className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${method === m.id ? "border-[var(--dw-violet)] bg-[var(--dw-violet)]/10" : "border-[var(--dw-border)] bg-white/[0.03] hover:bg-white/[0.06]"}`}>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-[var(--dw-cyan)]"><m.Icon size={17} /></span>
+              <span className="flex-1 text-sm font-medium">{m.name}</span>
+              <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] ${m.soon ? "bg-[var(--dw-amber)]/15 text-[var(--dw-amber)]" : "bg-[var(--dw-green)]/15 text-[var(--dw-green)]"}`}>
+                {!m.soon && <span className="h-1.5 w-1.5 rounded-full bg-[var(--dw-green)] dw-pulse-ring" />}
+                {m.soon ? tr("buy.comingSoon") : tr("buy.online")}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* CTA */}
+        {sel.soon ? (
+          <button disabled className="mt-4 w-full rounded-xl bg-white/[0.06] py-3 text-sm font-semibold text-[var(--dw-muted)]">{tr("buy.comingSoon")}</button>
+        ) : (
+          <a href={sel.url} target="_blank" rel="noopener noreferrer" className="dw-btn-primary mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold">
+            {tr("common.open")} · {sel.name}
+          </a>
+        )}
+
+        {/* working option: deposit */}
+        <div className="mt-3 rounded-2xl border border-[var(--dw-green)]/25 bg-[var(--dw-green)]/[0.06] p-4">
           <p className="text-sm font-medium">{tr("buy.haveCoins")}</p>
           <p className="mt-1 text-xs text-[var(--dw-muted)]">{tr("buy.haveCoinsDesc")}</p>
-          <button onClick={onReceive} className="dw-btn-primary mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold">
+          <button onClick={onReceive} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--dw-green)]/30 bg-[var(--dw-green)]/10 py-2.5 text-sm font-semibold text-[var(--dw-green)] transition hover:bg-[var(--dw-green)]/20">
             <ArrowDown size={16} /> {tr("buy.receiveDeposit")}
           </button>
         </div>
-
-        <button onClick={onClose} className="dw-btn-ghost mt-3 w-full rounded-xl py-2.5 text-sm text-[var(--dw-muted)]">{tr("common.close")}</button>
       </div>
     </div>
   );
