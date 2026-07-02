@@ -475,6 +475,8 @@ function PortfolioView({ address, balanceHidden, toggleBalance, onGoto }: {
   const hidden = (pf?.holdings || []).filter((h) => h.spam);
   const up = (pf?.change24h ?? 0) >= 0;
 
+  if (detail) return <CoinDetailView holding={detail} address={address} onBack={() => setDetail(null)} />;
+
   return (
     <div className="dw-rise space-y-6">
       <Header title={tr("nav.portfolio")} />
@@ -549,8 +551,6 @@ function PortfolioView({ address, balanceHidden, toggleBalance, onGoto }: {
           </button>
         )}
       </div>
-
-      {detail && <CoinDetailModal holding={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }
@@ -598,13 +598,14 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /* ---------- coin detail modal: กราฟ + รายละเอียดการเทรด (คลิกเหรียญในตาราง) ---------- */
-function CoinDetailModal({ holding, onClose }: { holding: Holding; onClose: () => void }) {
+function CoinDetailView({ holding, address, onBack }: { holding: Holding; address: string | null; onBack: () => void }) {
   const { t: tr } = useI18n();
   const [market, setMarket] = React.useState<DannyToken | null>(null);
   const [chart, setChart] = React.useState<ChartPoint[] | null>(null);
   const [chartState, setChartState] = React.useState<"loading" | "ok" | "empty">("loading");
   const [chartType, setChartType] = React.useState<"candle" | "line">("candle");
   const [range, setRange] = React.useState<"1h" | "24h" | "7d">("24h");
+  const [txs, setTxs] = React.useState<Tx[] | null>(null);
   const up = (holding.change24h ?? 0) >= 0;
   const g = gradientFor(holding.address || holding.symbol);
 
@@ -632,29 +633,39 @@ function CoinDetailModal({ holding, onClose }: { holding: Holding; onClose: () =
     return () => { alive = false; };
   }, [market, holding, range]);
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div onClick={(e) => e.stopPropagation()} className="dw-glass-strong relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--dw-border)] p-6 shadow-2xl" style={{ background: "var(--dw-popover)" }}>
-        <div className="flex items-center gap-3">
-          <TokenIcon symbol={holding.symbol} gradient={g} logo={holding.logo} size={40} />
-          <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-2 text-lg font-bold">
-              {holding.symbol}
-              {holding.isNative && <span className="rounded-full bg-[var(--dw-violet)]/20 px-1.5 py-0.5 text-[9px] text-[var(--dw-purple)]">{tr("common.native")}</span>}
-            </p>
-            <p className="truncate text-xs text-[var(--dw-muted)]">{holding.name}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-lg font-bold tabular-nums">{fmtPrice(holding.priceUsd)}</p>
-            <p className={`text-xs font-medium ${holding.change24h == null ? "text-[var(--dw-muted)]" : up ? "text-[var(--dw-green)]" : "text-[var(--dw-rose)]"}`}>
-              {holding.change24h == null ? "—" : `${up ? "▲" : "▼"} ${Math.abs(holding.change24h).toFixed(2)}%`}
-            </p>
-          </div>
-          <button onClick={onClose} aria-label="close" className="dw-btn-ghost ml-2 grid h-8 w-8 shrink-0 place-items-center rounded-full text-[var(--dw-muted)]">✕</button>
-        </div>
+  React.useEffect(() => {
+    if (!address) return;
+    let alive = true;
+    fetch(`/api/danny/activity?address=${address}`).then((r) => r.json())
+      .then((j: { txs?: Tx[] }) => { if (alive) setTxs((j.txs || []).filter((t) => t.token === holding.symbol)); })
+      .catch(() => alive && setTxs([]));
+    return () => { alive = false; };
+  }, [address, holding.symbol]);
 
-        <div className="mt-5 flex items-center justify-between">
+  return (
+    <div className="dw-rise space-y-6">
+      {/* header + back */}
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} aria-label="back" className="dw-btn-ghost grid h-9 w-9 shrink-0 place-items-center rounded-full text-[var(--dw-muted)]"><ChevronRight size={18} className="rotate-180" /></button>
+        <TokenIcon symbol={holding.symbol} gradient={g} logo={holding.logo} size={40} />
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-2 text-lg font-bold">
+            {holding.symbol}
+            {holding.isNative && <span className="rounded-full bg-[var(--dw-violet)]/20 px-1.5 py-0.5 text-[9px] text-[var(--dw-purple)]">{tr("common.native")}</span>}
+          </p>
+          <p className="truncate text-xs text-[var(--dw-muted)]">{holding.name}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-bold tabular-nums">{fmtPrice(holding.priceUsd)}</p>
+          <p className={`text-xs font-medium ${holding.change24h == null ? "text-[var(--dw-muted)]" : up ? "text-[var(--dw-green)]" : "text-[var(--dw-rose)]"}`}>
+            {holding.change24h == null ? "—" : `${up ? "▲" : "▼"} ${Math.abs(holding.change24h).toFixed(2)}%`}
+          </p>
+        </div>
+      </div>
+
+      {/* chart */}
+      <div className="dw-glass rounded-3xl p-4">
+        <div className="flex items-center justify-between">
           <div className="flex gap-1">
             {(["candle", "line"] as const).map((ct) => (
               <button key={ct} onClick={() => setChartType(ct)} className={`rounded-lg px-2.5 py-1 text-[11px] font-medium ${chartType === ct ? "dw-btn-primary" : "dw-btn-ghost text-[var(--dw-muted)]"}`}>{ct === "candle" ? tr("chart.candle") : tr("chart.line")}</button>
@@ -666,24 +677,53 @@ function CoinDetailModal({ holding, onClose }: { holding: Holding; onClose: () =
             ))}
           </div>
         </div>
-
-        <div className="dw-glass mt-3 overflow-hidden rounded-2xl p-2">
-          {chartState === "loading" ? <div className="dw-shimmer h-[240px] rounded-xl" />
+        <div className="mt-3 overflow-hidden rounded-2xl">
+          {chartState === "loading" ? <div className="dw-shimmer h-[260px] rounded-xl" />
             : chartState === "ok" && chart ? (chartType === "candle" ? <CandleChart points={chart} /> : <PriceChart points={chart} up={up} />)
-              : <div className="flex h-[200px] items-center justify-center text-center text-xs text-[var(--dw-muted)]">{tr("asset.noChartData")}</div>}
+              : <div className="flex h-[220px] items-center justify-center text-center text-xs text-[var(--dw-muted)]">{tr("asset.noChartData")}</div>}
         </div>
+      </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-          <Stat label={tr("asset.marketCap")} value={market?.marketCap ? `$${compact(market.marketCap)}` : "—"} />
-          <Stat label={tr("asset.vol24h")} value={market?.vol24hUSD != null ? `$${compact(market.vol24hUSD)}` : "—"} />
-          <Stat label={tr("asset.holders")} value={market?.holders ? compact(market.holders) : "—"} />
-          <Stat label={tr("asset.totalSupply")} value={market?.totalSupply ? compact(market.totalSupply) : "—"} />
-        </div>
+      {/* stats */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <Stat label={tr("asset.marketCap")} value={market?.marketCap ? `$${compact(market.marketCap)}` : "—"} />
+        <Stat label={tr("asset.vol24h")} value={market?.vol24hUSD != null ? `$${compact(market.vol24hUSD)}` : "—"} />
+        <Stat label={tr("asset.holders")} value={market?.holders ? compact(market.holders) : "—"} />
+        <Stat label={tr("asset.totalSupply")} value={market?.totalSupply ? compact(market.totalSupply) : "—"} />
+      </div>
 
-        <div className="mt-3 flex items-center justify-between rounded-2xl border border-[var(--dw-border)] bg-white/[0.03] px-4 py-3 text-sm">
-          <span className="text-[var(--dw-muted)]">{tr("table.holding")}</span>
-          <span className="font-semibold tabular-nums">{formatToken(holding.balance)} {holding.symbol}{holding.valueUsd != null ? ` · ${formatUsd(holding.valueUsd)}` : ""}</span>
-        </div>
+      {/* transaction history */}
+      <div className="dw-glass rounded-3xl p-2 sm:p-4">
+        <h2 className="px-3 py-2 font-semibold">{tr("activity.title")}</h2>
+        {txs === null ? (
+          <div className="space-y-2 p-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="dw-shimmer h-14 rounded-xl" />)}</div>
+        ) : txs.length === 0 ? (
+          <p className="py-10 text-center text-sm text-[var(--dw-muted)]">{tr("activity.empty")}</p>
+        ) : (
+          <div className="divide-y divide-[var(--dw-border)]/60">
+            {txs.map((t) => {
+              const inbound = t.type === "receive";
+              const Icon = t.type === "swap" ? SwapIcon : inbound ? ArrowDown : ArrowUp;
+              const stCls = t.status === "failed" ? "text-[var(--dw-rose)]" : t.status === "pending" ? "text-[var(--dw-amber)]" : "text-[var(--dw-green)]";
+              return (
+                <a key={t.id} href={explorerTx(t.hash ?? "")} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-3 py-3 transition hover:bg-white/[0.03]">
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${inbound ? "bg-[var(--dw-green)]/15 text-[var(--dw-green)]" : t.type === "swap" ? "bg-[var(--dw-violet)]/15 text-[var(--dw-cyan)]" : "bg-[var(--dw-rose)]/15 text-[var(--dw-rose)]"}`}><Icon size={17} /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{inbound ? tr("common.receive") : t.type === "swap" ? tr("common.swap") : tr("common.send")} {t.token}</p>
+                    <p className="truncate text-xs text-[var(--dw-muted)]">{t.counterparty} · {timeAgo(t.timestamp, tr)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-semibold tabular-nums ${inbound ? "text-[var(--dw-green)]" : t.type === "send" ? "text-[var(--dw-rose)]" : ""}`}>{inbound ? "+" : t.type === "send" ? "-" : ""}{formatToken(t.amount)} {t.token}</p>
+                    <p className="text-xs text-[var(--dw-muted)]">
+                      {t.valueUsd != null ? `≈ ${t.valueUsd < 0.01 ? "<$0.01" : `$${t.valueUsd.toFixed(2)}`} ` : ""}
+                      <span className={stCls}>{t.status === "failed" ? tr("tx.statusFailed") : t.status === "pending" ? tr("tx.statusPending") : tr("tx.statusSuccess")}</span>
+                    </p>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
