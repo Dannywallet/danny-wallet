@@ -1028,33 +1028,6 @@ function SendView() {
               <TokenSelect token={token} tokens={tokens} onSelect={setToken} filterHeld />
             </div>
           </div>
-          {recent.length > 0 && (
-            <div className="dw-glass rounded-2xl p-4">
-              <p className="mb-2 text-xs text-[var(--dw-muted)]">{tr("send.recentList")}</p>
-              <div className="space-y-1.5">
-                {recent.slice(0, shownRecent).map((c) => (
-                  <button key={c.address} onClick={() => setTo(c.address)}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left hover:bg-white/[0.06]">
-                    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${c.direction === "sent" ? "bg-[var(--dw-rose)]/12 text-[var(--dw-rose)]" : "bg-[var(--dw-green)]/12 text-[var(--dw-green)]"}`}>
-                      {c.direction === "sent" ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
-                    </span>
-                    <span className="flex-1 font-mono text-sm">{c.short}</span>
-                    <span className="text-[10px] text-[var(--dw-muted)]">{c.direction === "sent" ? tr("send.sentBefore") : tr("send.receivedFrom")}</span>
-                  </button>
-                ))}
-              </div>
-              {recent.length > 3 && (
-                <div className="mt-2 flex items-center justify-center gap-4">
-                  {shownRecent < recent.length && (
-                    <button onClick={() => setShownRecent((n) => n + 3)} className="text-xs font-medium text-[var(--dw-cyan)]">{tr("send.showMore")}</button>
-                  )}
-                  {shownRecent > 3 && (
-                    <button onClick={() => setShownRecent(3)} className="text-xs font-medium text-[var(--dw-muted)]">{tr("send.showLess")}</button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
           <div className="dw-glass rounded-2xl p-4">
             <div className="flex items-center justify-between">
               <label className="text-xs text-[var(--dw-muted)]">{tr("send.recipient")}</label>
@@ -1103,6 +1076,33 @@ function SendView() {
               </div>
             )}
           </div>
+          {recent.length > 0 && (
+            <div className="dw-glass rounded-2xl p-4">
+              <p className="mb-2 text-xs text-[var(--dw-muted)]">{tr("send.recentList")}</p>
+              <div className="space-y-1.5">
+                {recent.slice(0, shownRecent).map((c) => (
+                  <button key={c.address} onClick={() => setTo(c.address)}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left hover:bg-white/[0.06]">
+                    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${c.direction === "sent" ? "bg-[var(--dw-rose)]/12 text-[var(--dw-rose)]" : "bg-[var(--dw-green)]/12 text-[var(--dw-green)]"}`}>
+                      {c.direction === "sent" ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+                    </span>
+                    <span className="flex-1 font-mono text-sm">{c.short}</span>
+                    <span className="text-[10px] text-[var(--dw-muted)]">{c.direction === "sent" ? tr("send.sentBefore") : tr("send.receivedFrom")}</span>
+                  </button>
+                ))}
+              </div>
+              {recent.length > 3 && (
+                <div className="mt-2 flex items-center justify-center gap-4">
+                  {shownRecent < recent.length && (
+                    <button onClick={() => setShownRecent((n) => n + 3)} className="text-xs font-medium text-[var(--dw-cyan)]">{tr("send.showMore")}</button>
+                  )}
+                  {shownRecent > 3 && (
+                    <button onClick={() => setShownRecent(3)} className="text-xs font-medium text-[var(--dw-muted)]">{tr("send.showLess")}</button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <button onClick={openPin} disabled={!enough || !validAddr} className="dw-btn-primary w-full rounded-2xl py-4 font-semibold disabled:opacity-50">
             {!validAddr ? tr("send.enterRecipient") : !amt ? tr("swap.enterAmount") : !enough ? tr("swap.insufficient") : tr("send.sendPin")}
           </button>
