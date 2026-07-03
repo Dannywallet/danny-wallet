@@ -47,7 +47,13 @@ export function hidden(value: string, on: boolean): string {
 }
 
 /** แปลชื่อบัญชีเริ่มต้น ("บัญชี N" / "Account N" …) ให้ตรงภาษาปัจจุบัน — ชื่อที่ผู้ใช้ตั้งเองไม่แตะ */
-export function accountLabel(name: string, accountWord: string): string {
+export function accountLabel(name: string, accountWord: string, importedWord?: string): string {
   const m = (name || "").match(/^(?:บัญชี|Account|Tài khoản|账户)\s*(\d+)$/);
-  return m ? `${accountWord} ${m[1]}` : name;
+  if (m) return `${accountWord} ${m[1]}`;
+  // ชื่อบัญชีนำเข้าเริ่มต้น ("นำเข้า 0x988f") — แปลคำนำหน้าให้ตรงภาษา คงส่วนที่อยู่ไว้
+  if (importedWord) {
+    const im = (name || "").match(/^(?:นำเข้า|Imported|Đã nhập|已导入)\s+(0x[0-9a-fA-F]+)$/);
+    if (im) return `${importedWord} ${im[1]}`;
+  }
+  return name;
 }

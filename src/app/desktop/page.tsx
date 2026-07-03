@@ -279,9 +279,9 @@ function AccountSwitcherSidebar() {
     <div ref={ref} className="relative my-5">
       <div className="flex w-full items-center gap-1 rounded-2xl border border-[var(--dw-border)] bg-white/[0.04] px-3 py-2.5 transition hover:bg-white/[0.07]">
         <button onClick={() => { setOpen((v) => !v); setMenuOpen(false); }} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-xs font-bold text-white">{accountLabel(active?.name || tr("tx.account"), tr("tx.account"))[0]}</span>
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-xs font-bold text-white">{accountLabel(active?.name || tr("tx.account"), tr("tx.account"), tr("acct.importedTag"))[0]}</span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold">{accountLabel(active?.name || tr("tx.account"), tr("tx.account"))}</span>
+            <span className="block truncate text-sm font-semibold">{accountLabel(active?.name || tr("tx.account"), tr("tx.account"), tr("acct.importedTag"))}</span>
             <span className="block text-[11px] text-[var(--dw-muted)]">{address ? shortAddress(address) : ""}</span>
           </span>
           <ChevronRight size={15} className={`text-[var(--dw-muted)] transition-transform ${open ? "rotate-90" : ""}`} />
@@ -313,9 +313,9 @@ function AccountSwitcherSidebar() {
             {accounts.map((a, i) => (
               <button key={a.address} onClick={() => { switchAccount(i); setOpen(false); }}
                 className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition ${i === activeIndex ? "bg-[var(--dw-violet)]/20" : "hover:bg-white/[0.06]"}`}>
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-[11px] font-bold text-white">{accountLabel(a.name || tr("tx.account"), tr("tx.account"))[0]}</span>
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-[11px] font-bold text-white">{accountLabel(a.name || tr("tx.account"), tr("tx.account"), tr("acct.importedTag"))[0]}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{accountLabel(a.name, tr("tx.account"))}</span>
+                  <span className="block truncate text-sm font-medium">{accountLabel(a.name, tr("tx.account"), tr("acct.importedTag"))}</span>
                   <span className="block text-[10px] text-[var(--dw-muted)]">{shortAddress(a.address)}</span>
                 </span>
                 {i === activeIndex && <Check size={14} className="text-[var(--dw-green)]" />}
@@ -1052,8 +1052,8 @@ function SendView() {
                   {accounts.map((a, i) => i === activeIndex ? null : (
                     <button key={a.address} onClick={() => setTo(a.address)}
                       className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${to.trim().toLowerCase() === a.address.toLowerCase() ? "border-[var(--dw-violet)] bg-[var(--dw-violet)]/15" : "border-[var(--dw-border)] hover:bg-white/[0.06]"}`}>
-                      <span className="grid h-5 w-5 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-[9px] font-bold text-white">{accountLabel(a.name, tr("tx.account"))[0]}</span>
-                      <span className="font-medium">{accountLabel(a.name, tr("tx.account"))}</span>
+                      <span className="grid h-5 w-5 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-[9px] font-bold text-white">{accountLabel(a.name, tr("tx.account"), tr("acct.importedTag"))[0]}</span>
+                      <span className="font-medium">{accountLabel(a.name, tr("tx.account"), tr("acct.importedTag"))}</span>
                       <span className="text-[var(--dw-muted)]">{shortAddress(a.address, 4, 4)}</span>
                     </button>
                   ))}
@@ -1092,7 +1092,7 @@ function ReceiveView({ address, name }: { address: string | null; name?: string 
     <div className="dw-rise mx-auto max-w-md space-y-6">
       <Header title={tr("receive.title")} />
       <div className="dw-glass flex flex-col items-center rounded-3xl p-8 text-center">
-        <p className="text-sm text-[var(--dw-muted)]">{tr("receive.scanCopyPre")} {accountLabel(name || tr("tx.account"), tr("tx.account"))} {tr("receive.scanCopyMid")} {CHAIN.name}</p>
+        <p className="text-sm text-[var(--dw-muted)]">{tr("receive.scanCopyPre")} {accountLabel(name || tr("tx.account"), tr("tx.account"), tr("acct.importedTag"))} {tr("receive.scanCopyMid")} {CHAIN.name}</p>
         <div className="mt-6 rounded-2xl bg-white p-4">{address && <QrCode value={address} size={220} />}</div>
         <p className="mt-6 break-all rounded-2xl bg-white/[0.04] px-4 py-3 font-mono text-sm">{address}</p>
         <button onClick={copy} className="dw-btn-primary mt-4 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold">
