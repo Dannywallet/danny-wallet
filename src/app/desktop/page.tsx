@@ -923,7 +923,7 @@ function TokenSelect({ token, tokens, onSelect, filterHeld, onOpenChange }: { to
 function SendView() {
   const { t: tr } = useI18n();
   const { tokens, state } = useSwapTokens();
-  const { address, getActivePrivateKey } = useWallet();
+  const { address, getActivePrivateKey, accounts, activeIndex } = useWallet();
   const { list: contacts, add: addContact } = useAddressBook();
   const [token, setToken] = React.useState<WToken | null>(null);
   const [to, setTo] = React.useState("");
@@ -1034,6 +1034,21 @@ function SendView() {
             </div>
             <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="0x…" className="mt-2 w-full bg-transparent font-mono text-sm outline-none placeholder:text-[var(--dw-muted)]" style={{ color: "var(--dw-text)" }} />
             {to && !validAddr && <p className="mt-1 text-xs text-[var(--dw-rose)]">{tr("send.invalidAddr2")}</p>}
+            {accounts.length > 1 && (
+              <div className="mt-3 border-t border-[var(--dw-border)] pt-3">
+                <p className="mb-2 text-[11px] text-[var(--dw-muted)]">{tr("acct.myAccounts")}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {accounts.map((a, i) => i === activeIndex ? null : (
+                    <button key={a.address} onClick={() => setTo(a.address)}
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${to.trim().toLowerCase() === a.address.toLowerCase() ? "border-[var(--dw-violet)] bg-[var(--dw-violet)]/15" : "border-[var(--dw-border)] hover:bg-white/[0.06]"}`}>
+                      <span className="grid h-5 w-5 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-[9px] font-bold text-white">{accountLabel(a.name, tr("tx.account"))[0]}</span>
+                      <span className="font-medium">{accountLabel(a.name, tr("tx.account"))}</span>
+                      <span className="text-[var(--dw-muted)]">{shortAddress(a.address, 4, 4)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {validAddr && !contacts.some((c) => c.id === to.trim().toLowerCase()) && (
               <div className="mt-3 flex items-center gap-2 border-t border-[var(--dw-border)] pt-3">
                 <input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder={tr("send.nameToSave")} className="dw-glass flex-1 rounded-lg px-3 py-1.5 text-xs outline-none" style={{ color: "var(--dw-text)" }} />
