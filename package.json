@@ -18,6 +18,7 @@
     "@walletconnect/web3wallet": "^1.16.1",
     "dan-wallet-web": "file:../DAN-wallet-web",
     "ethers": "^6.16.0",
+    "jsqr": "^1.4.0",
     "next": "^14.2.35",
     "react": "18.3.1",
     "react-dom": "18.3.1"

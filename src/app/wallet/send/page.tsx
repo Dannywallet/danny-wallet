@@ -12,7 +12,15 @@ import { useHoldings, type WToken } from "@/lib/wallet/use-holdings";
 import { formatUsd, formatToken, shortAddress, isLikelyAddress, accountLabel } from "@/lib/wallet/format";
 import { Check, Warn, Shield, ChevronRight, ArrowUp, ArrowDown, Scan } from "@/components/wallet/Icons";
 import { executeSend, estimateSendFee, explorerTx } from "@/lib/wallet/dandex-swap";
+import { QrScanner } from "@/components/wallet/QrScanner";
 import { useI18n } from "@/lib/wallet/i18n";
+
+// ดึงที่อยู่ 0x… จากผล QR (รองรับ ethereum:0x…, มี ?/@ ต่อท้าย, ตัวพิมพ์ใหญ่)
+function parseScannedAddress(raw: string): string | null {
+  const s = (raw || "").trim();
+  const m = s.match(/0x[a-fA-F0-9]{40}/);
+  return m ? m[0] : null;
+}
 
 const FEE = 0.012; // ค่าธรรมเนียมเครือข่ายโดยประมาณ (DAN)
 
@@ -36,6 +44,7 @@ export default function Send() {
   const [pin, setPin] = React.useState("");
   const [askPin, setAskPin] = React.useState(false);
   const [gasFee, setGasFee] = React.useState<number | null | "loading">(null);
+  const [scanOpen, setScanOpen] = React.useState(false);
 
   const goConfirm = async () => {
     if (!token || !address) return;
@@ -211,7 +220,7 @@ export default function Send() {
                   className="flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--dw-muted)]"
                   style={{ color: "var(--dw-text)" }}
                 />
-                <button className="text-[var(--dw-cyan)]"><Scan size={18} /></button>
+                <button type="button" onClick={() => setScanOpen(true)} aria-label="scan QR" className="text-[var(--dw-cyan)]"><Scan size={18} /></button>
               </div>
               {to.length > 0 && !addrValid && (
                 <p className="mt-1.5 flex items-center gap-1 text-xs text-[var(--dw-rose)]">
@@ -353,6 +362,19 @@ export default function Send() {
           </div>
         )}
       </Screen>
+
+      {/* สแกน QR เพื่อกรอกที่อยู่ปลายทาง */}
+      <QrScanner
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onScan={(text) => {
+          const addr = parseScannedAddress(text);
+          if (addr) {
+            setTo(addr);
+            setScanOpen(false);
+          }
+        }}
+      />
 
       {/* ใส่ PIN เพื่อเซ็น */}
       <Sheet open={askPin} onClose={() => { setAskPin(false); setPin(""); }} title={t("tx.pinConfirm")}>
