@@ -17,13 +17,20 @@ import { DannyLogo } from "@/components/wallet/DannyLogo";
 import { LanguageToggle } from "@/components/wallet/LanguageToggle";
 import { useI18n } from "@/lib/wallet/i18n";
 import { QrCode } from "@/components/wallet/QrCode";
+import { QrScanner } from "@/components/wallet/QrScanner";
 import { PriceChart, type ChartPoint } from "@/components/wallet/PriceChart";
 import { CandleChart } from "@/components/wallet/CandleChart";
 import { useAddressBook, isValidAddress } from "@/lib/wallet/address-book";
 import {
   Home, Swap as SwapIcon, Activity as ActivityIcon, ArrowDown, ArrowUp,
-  Copy, Check, Lock, Shield, Warn, EyeOff, Eye, ChevronRight, Plus, Settings, Card, Bell, Book, Globe,
+  Copy, Check, Lock, Shield, Warn, EyeOff, Eye, ChevronRight, Plus, Settings, Card, Bell, Book, Globe, Scan,
 } from "@/components/wallet/Icons";
+
+// ดึงที่อยู่ 0x… จากผล QR (รองรับ ethereum:0x…, มี ?/@ ต่อท้าย, ตัวพิมพ์ใหญ่)
+function parseScannedAddress(raw: string): string | null {
+  const m = (raw || "").trim().match(/0x[a-fA-F0-9]{40}/);
+  return m ? m[0] : null;
+}
 
 // โหลดแบบ lazy — WalletConnect libs หนัก จึงโหลดเฉพาะตอนเปิดหน้า Connect
 const DappConnect = dynamic(() => import("./DappConnect"), {
@@ -929,6 +936,7 @@ function SendView() {
   const [to, setTo] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [bookOpen, setBookOpen] = React.useState(false);
+  const [scanOpen, setScanOpen] = React.useState(false);
   const [saveName, setSaveName] = React.useState("");
   const bookRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -1032,7 +1040,10 @@ function SendView() {
                 )}
               </div>
             </div>
-            <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="0x…" className="mt-2 w-full bg-transparent font-mono text-sm outline-none placeholder:text-[var(--dw-muted)]" style={{ color: "var(--dw-text)" }} />
+            <div className="mt-2 flex items-center gap-2">
+              <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="0x…" className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none placeholder:text-[var(--dw-muted)]" style={{ color: "var(--dw-text)" }} />
+              <button type="button" onClick={() => setScanOpen(true)} aria-label="scan QR" title="Scan QR" className="shrink-0 text-[var(--dw-cyan)] hover:opacity-80"><Scan size={18} /></button>
+            </div>
             {to && !validAddr && <p className="mt-1 text-xs text-[var(--dw-rose)]">{tr("send.invalidAddr2")}</p>}
             {accounts.length > 1 && (
               <div className="mt-3 border-t border-[var(--dw-border)] pt-3">
@@ -1064,6 +1075,10 @@ function SendView() {
       <PinModal open={askPin} onClose={() => { setAskPin(false); setPin(""); }} title={tr("send.confirmTitle2")}
         subtitle={token ? `${tr("send.sendPrefix")} ${formatToken(amt, token.symbol)} → ${shortAddress(to.trim())}` : ""}
         fee={fee} pin={pin} setPin={setPin} onSubmit={submit} busy={phase === "sending"} busyText={statusText || tr("send.sending")} err={err} />
+      <QrScanner open={scanOpen} onClose={() => setScanOpen(false)} onScan={(text) => {
+        const addr = parseScannedAddress(text);
+        if (addr) { setTo(addr); setScanOpen(false); }
+      }} />
     </div>
   );
 }
