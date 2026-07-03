@@ -939,6 +939,7 @@ function SendView() {
   const [scanOpen, setScanOpen] = React.useState(false);
   const [saveName, setSaveName] = React.useState("");
   const [recent, setRecent] = React.useState<{ address: string; short: string; direction: "sent" | "received" }[]>([]);
+  const [shownRecent, setShownRecent] = React.useState(3);
   React.useEffect(() => {
     if (!address) { setRecent([]); return; }
     fetch(`/api/danny/contacts?address=${address}`)
@@ -1031,7 +1032,7 @@ function SendView() {
             <div className="dw-glass rounded-2xl p-4">
               <p className="mb-2 text-xs text-[var(--dw-muted)]">{tr("send.recentList")}</p>
               <div className="space-y-1.5">
-                {recent.map((c) => (
+                {recent.slice(0, shownRecent).map((c) => (
                   <button key={c.address} onClick={() => setTo(c.address)}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left hover:bg-white/[0.06]">
                     <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${c.direction === "sent" ? "bg-[var(--dw-rose)]/12 text-[var(--dw-rose)]" : "bg-[var(--dw-green)]/12 text-[var(--dw-green)]"}`}>
@@ -1042,6 +1043,16 @@ function SendView() {
                   </button>
                 ))}
               </div>
+              {recent.length > 3 && (
+                <div className="mt-2 flex items-center justify-center gap-4">
+                  {shownRecent < recent.length && (
+                    <button onClick={() => setShownRecent((n) => n + 3)} className="text-xs font-medium text-[var(--dw-cyan)]">{tr("send.showMore")}</button>
+                  )}
+                  {shownRecent > 3 && (
+                    <button onClick={() => setShownRecent(3)} className="text-xs font-medium text-[var(--dw-muted)]">{tr("send.showLess")}</button>
+                  )}
+                </div>
+              )}
             </div>
           )}
           <div className="dw-glass rounded-2xl p-4">

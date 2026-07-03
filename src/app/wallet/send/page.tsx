@@ -45,6 +45,7 @@ export default function Send() {
   const [askPin, setAskPin] = React.useState(false);
   const [gasFee, setGasFee] = React.useState<number | null | "loading">(null);
   const [scanOpen, setScanOpen] = React.useState(false);
+  const [shownContacts, setShownContacts] = React.useState(3);
 
   const goConfirm = async () => {
     if (!token || !address) return;
@@ -287,7 +288,7 @@ export default function Send() {
               <div>
                 <p className="mb-2 text-xs text-[var(--dw-muted)]">{t("send.recentList")}</p>
                 <div className="space-y-1.5">
-                  {contacts.map((c) => (
+                  {contacts.slice(0, shownContacts).map((c) => (
                     <button
                       key={c.address}
                       onClick={() => setTo(c.address)}
@@ -309,6 +310,20 @@ export default function Send() {
                     </button>
                   ))}
                 </div>
+                {contacts.length > 3 && (
+                  <div className="mt-2 flex items-center justify-center gap-4">
+                    {shownContacts < contacts.length && (
+                      <button onClick={() => setShownContacts((n) => n + 3)} className="text-xs font-medium text-[var(--dw-cyan)]">
+                        {t("send.showMore")}
+                      </button>
+                    )}
+                    {shownContacts > 3 && (
+                      <button onClick={() => setShownContacts(3)} className="text-xs font-medium text-[var(--dw-muted)]">
+                        {t("send.showLess")}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
