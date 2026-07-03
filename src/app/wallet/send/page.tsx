@@ -254,7 +254,35 @@ export default function Send() {
               </div>
             )}
 
-            {/* สมุดที่อยู่ — จากประวัติธุรกรรมจริง */}
+            {/* จำนวน */}
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-sm font-medium">{t("send.amount")}</label>
+                <button
+                  onClick={() => setAmount(String(token.balance))}
+                  className="text-xs font-medium text-[var(--dw-cyan)]"
+                >
+                  {t("tx.max")}
+                </button>
+              </div>
+              <div className="dw-glass flex items-center gap-2 rounded-2xl px-4 py-3 focus-within:border-[var(--dw-cyan)]/50">
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="flex-1 bg-transparent text-lg font-semibold outline-none placeholder:text-[var(--dw-muted)]"
+                  style={{ color: "var(--dw-text)" }}
+                />
+                <span className="text-sm font-medium text-[var(--dw-muted)]">{token.symbol}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-xs text-[var(--dw-muted)]">
+                <span>{usd != null ? `≈ ${formatUsd(usd)}` : t("common.noPrice")}</span>
+                {amt > token.balance && <span className="text-[var(--dw-rose)]">{t("swap.insufficient")}</span>}
+              </div>
+            </div>
+
+            {/* สมุดที่อยู่ — จากประวัติธุรกรรมจริง (ใต้ช่องจำนวน) */}
             {contacts.length > 0 && (
               <div>
                 <p className="mb-2 text-xs text-[var(--dw-muted)]">{t("send.recentList")}</p>
@@ -283,34 +311,6 @@ export default function Send() {
                 </div>
               </div>
             )}
-
-            {/* จำนวน */}
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className="text-sm font-medium">{t("send.amount")}</label>
-                <button
-                  onClick={() => setAmount(String(token.balance))}
-                  className="text-xs font-medium text-[var(--dw-cyan)]"
-                >
-                  {t("tx.max")}
-                </button>
-              </div>
-              <div className="dw-glass flex items-center gap-2 rounded-2xl px-4 py-3 focus-within:border-[var(--dw-cyan)]/50">
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="flex-1 bg-transparent text-lg font-semibold outline-none placeholder:text-[var(--dw-muted)]"
-                  style={{ color: "var(--dw-text)" }}
-                />
-                <span className="text-sm font-medium text-[var(--dw-muted)]">{token.symbol}</span>
-              </div>
-              <div className="mt-1 flex items-center justify-between text-xs text-[var(--dw-muted)]">
-                <span>{usd != null ? `≈ ${formatUsd(usd)}` : t("common.noPrice")}</span>
-                {amt > token.balance && <span className="text-[var(--dw-rose)]">{t("swap.insufficient")}</span>}
-              </div>
-            </div>
 
             <button
               onClick={goConfirm}
