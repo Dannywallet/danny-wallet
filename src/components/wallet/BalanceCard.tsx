@@ -3,7 +3,7 @@
 import React from "react";
 import { formatUsd, formatChange, accountLabel } from "@/lib/wallet/format";
 import { shortAddress } from "@/lib/wallet/format";
-import { Eye, EyeOff, ChevronRight } from "./Icons";
+import { Eye, EyeOff, ChevronRight, Copy, Check } from "./Icons";
 import { useI18n } from "@/lib/wallet/i18n";
 
 export function BalanceCard({
@@ -25,6 +25,11 @@ export function BalanceCard({
 }) {
   const { t } = useI18n();
   const up = change >= 0;
+  const [copied, setCopied] = React.useState(false);
+  const copyAddr = async () => {
+    if (!address) return;
+    try { await navigator.clipboard.writeText(address); setCopied(true); setTimeout(() => setCopied(false), 1200); } catch {}
+  };
 
   return (
     <div className="dw-glass-strong dw-glow-violet relative overflow-hidden rounded-[28px] p-5">
@@ -40,6 +45,13 @@ export function BalanceCard({
         >
           <span className="shrink-0 font-medium text-[var(--dw-text)]">{accountLabel(accountName || t("tx.account"), t("tx.account"), t("acct.importedTag"))}</span>
           <span className="truncate text-[var(--dw-muted)]">{address ? shortAddress(address) : "—"}</span>
+          {address && (
+            <span role="button" tabIndex={0} aria-label={t("acct.copyAddress")}
+              onClick={(e) => { e.stopPropagation(); copyAddr(); }}
+              className="shrink-0 cursor-pointer text-[var(--dw-muted)] transition hover:text-[var(--dw-text)]">
+              {copied ? <Check size={13} className="text-[var(--dw-green)]" /> : <Copy size={13} />}
+            </span>
+          )}
           <ChevronRight size={13} className="shrink-0 text-[var(--dw-muted)]" />
         </button>
         <button
