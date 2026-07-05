@@ -282,7 +282,16 @@ function AccountSwitcherSidebar() {
           <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[var(--dw-violet)] to-[var(--dw-cyan)] text-xs font-bold text-white">{accountLabel(active?.name || tr("tx.account"), tr("tx.account"), tr("acct.importedTag"))[0]}</span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold">{accountLabel(active?.name || tr("tx.account"), tr("tx.account"), tr("acct.importedTag"))}</span>
-            <span className="block text-[11px] text-[var(--dw-muted)]">{address ? shortAddress(address) : ""}</span>
+            <span className="flex items-center gap-1 text-[11px] text-[var(--dw-muted)]">
+              {address ? shortAddress(address) : ""}
+              {address && (
+                <span role="button" tabIndex={0} aria-label={tr("acct.copyAddress")} title={tr("acct.copyAddress")}
+                  onClick={(e) => { e.stopPropagation(); copy(); }}
+                  className="cursor-pointer transition hover:text-[var(--dw-text)]">
+                  {copied ? <Check size={12} className="text-[var(--dw-green)]" /> : <Copy size={12} />}
+                </span>
+              )}
+            </span>
           </span>
           <ChevronRight size={15} className={`text-[var(--dw-muted)] transition-transform ${open ? "rotate-90" : ""}`} />
         </button>
@@ -293,9 +302,6 @@ function AccountSwitcherSidebar() {
 
       {menuOpen && (
         <div className="dw-glass-strong absolute right-0 z-40 mt-2 w-60 rounded-2xl border border-[var(--dw-border)] p-2 shadow-2xl" style={{ background: "var(--dw-popover)" }}>
-          <button onClick={copy} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-[var(--dw-muted)] hover:bg-white/[0.06] hover:text-[var(--dw-text)]">
-            {copied ? <Check size={13} className="text-[var(--dw-green)]" /> : <Copy size={13} />} {tr("acct.copyAddress")}
-          </button>
           <button onClick={() => setShowKey((v) => !v)} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-[var(--dw-muted)] hover:bg-white/[0.06] hover:text-[var(--dw-text)]">
             <Eye size={13} /> {tr("acct.revealKey")}
           </button>
@@ -324,9 +330,6 @@ function AccountSwitcherSidebar() {
           </div>
 
           <div className="mt-1 border-t border-[var(--dw-border)] pt-1">
-            <button onClick={copy} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs text-[var(--dw-muted)] hover:bg-white/[0.06] hover:text-[var(--dw-text)]">
-              {copied ? <Check size={13} className="text-[var(--dw-green)]" /> : <Copy size={13} />} {tr("acct.copyAddress")}
-            </button>
             {!action && (
               <>
                 {hasSeed && (
