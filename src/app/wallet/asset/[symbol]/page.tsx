@@ -57,6 +57,7 @@ export default function AssetDetail() {
   const [chartType, setChartType] = React.useState<"candle" | "line">("candle");
   const [range, setRange] = React.useState<"1h" | "24h" | "7d">("24h");
   const [chartChange, setChartChange] = React.useState<number | null>(null);
+  const [onchainVol, setOnchainVol] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     if (!MY_ADDRESS) return;
@@ -143,6 +144,20 @@ export default function AssetDetail() {
       alive = false;
     };
   }, [state, holding, market, range]);
+
+  // 24h volume: dancharts ไม่มีสำหรับบางเหรียญ → คำนวณ on-chain จาก Swap events
+  React.useEffect(() => {
+    if (state !== "ok" || !holding) return;
+    if (market?.vol24hUSD != null) { setOnchainVol(null); return; }
+    const tokenAddr = holding.isNative ? WDAN : holding.address;
+    if (!tokenAddr) return;
+    let alive = true;
+    fetch(`/api/danny/token-stats?token=${tokenAddr}`)
+      .then((r) => r.json())
+      .then((j: { vol24hUSD?: number | null }) => { if (alive) setOnchainVol(typeof j.vol24hUSD === "number" ? j.vol24hUSD : null); })
+      .catch(() => alive && setOnchainVol(null));
+    return () => { alive = false; };
+  }, [state, holding, market]);
 
   const copy = async () => {
     if (!holding?.address) return;
@@ -298,7 +313,7 @@ export default function AssetDetail() {
         {/* สถิติตลาดจริง */}
         <div className="mt-4 grid grid-cols-2 gap-2.5">
           <Stat label={tr("asset.marketCap")} value={marketCap ? `$${compact(marketCap)}` : "—"} />
-          <Stat label={tr("asset.vol24h")} value={market?.vol24hUSD != null ? `$${compact(market.vol24hUSD)}` : "—"} />
+          <Stat label={tr("asset.vol24h")} value={(market?.vol24hUSD ?? onchainVol) != null ? `$${compact((market?.vol24hUSD ?? onchainVol) as number)}` : "—"} />
           <Stat label={tr("asset.holders")} value={market?.holders ? compact(market.holders) : "—"} />
           <Stat label={tr("asset.totalSupply")} value={market?.totalSupply ? compact(market.totalSupply) : "—"} />
         </div>

@@ -630,6 +630,7 @@ function CoinDetailView({ holding, address, onBack }: { holding: Holding; addres
   const [chartType, setChartType] = React.useState<"candle" | "line">("candle");
   const [range, setRange] = React.useState<"1h" | "24h" | "7d">("24h");
   const [txs, setTxs] = React.useState<Tx[] | null>(null);
+  const [onchainVol, setOnchainVol] = React.useState<number | null>(null);
   const up = (holding.change24h ?? 0) >= 0;
   const g = gradientFor(holding.address || holding.symbol);
 
@@ -669,6 +670,18 @@ function CoinDetailView({ holding, address, onBack }: { holding: Holding; addres
       .catch(() => alive && setTxs([]));
     return () => { alive = false; };
   }, [address, holding.symbol]);
+
+  // 24h volume fallback (on-chain) เมื่อ dancharts ไม่มี
+  React.useEffect(() => {
+    if (market?.vol24hUSD != null) { setOnchainVol(null); return; }
+    const tokenAddr = holding.isNative ? WDAN : holding.address;
+    if (!tokenAddr) return;
+    let alive = true;
+    fetch(`/api/danny/token-stats?token=${tokenAddr}`).then((r) => r.json())
+      .then((j: { vol24hUSD?: number | null }) => { if (alive) setOnchainVol(typeof j.vol24hUSD === "number" ? j.vol24hUSD : null); })
+      .catch(() => alive && setOnchainVol(null));
+    return () => { alive = false; };
+  }, [market, holding]);
 
   return (
     <div className="dw-rise space-y-6">
@@ -715,7 +728,7 @@ function CoinDetailView({ holding, address, onBack }: { holding: Holding; addres
       {/* stats */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <Stat label={tr("asset.marketCap")} value={(() => { const p = holding.priceUsd ?? market?.priceUsd ?? null; const mc = market?.marketCap ?? (p && market?.totalSupply ? p * market.totalSupply : null); return mc ? `$${compact(mc)}` : "—"; })()} />
-        <Stat label={tr("asset.vol24h")} value={market?.vol24hUSD != null ? `$${compact(market.vol24hUSD)}` : "—"} />
+        <Stat label={tr("asset.vol24h")} value={(market?.vol24hUSD ?? onchainVol) != null ? `$${compact((market?.vol24hUSD ?? onchainVol) as number)}` : "—"} />
         <Stat label={tr("asset.holders")} value={market?.holders ? compact(market.holders) : "—"} />
         <Stat label={tr("asset.totalSupply")} value={market?.totalSupply ? compact(market.totalSupply) : "—"} />
       </div>
