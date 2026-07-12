@@ -1,6 +1,18 @@
 import { NextResponse } from "next/server";
+import { promises as fs } from "fs";
+import path from "path";
 import { fetchDannyPrices, nativeDanPrice, fetchDannyLogos, WDAN } from "@/lib/wallet/danny-prices";
 import { fetchDandexPrices } from "@/lib/wallet/dandex-prices";
+
+// โลโก้ที่แอดมินอนุมัติ (override โลโก้อัตโนมัติ) — ไฟล์เดียวกับที่ tokens route ใช้
+async function readApprovedLogos(): Promise<Record<string, string>> {
+  try {
+    const raw = await fs.readFile(path.join(process.cwd(), "data", "approved-logos.json"), "utf8");
+    return JSON.parse(raw) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
 
 // พอร์ตจริงของที่อยู่บน Danny Chain (5069):
 // ยอดถือครองจริง (Blockscout) × ราคาจริง (dancharts) = มูลค่า USD
@@ -50,7 +62,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const [balRes, nativeRes, prices, logoMap] = await Promise.all([
+    const [balRes, nativeRes, prices, logoMap, approvedLogos] = await Promise.all([
       fetch(BALANCES(address), { headers: { Accept: "application/json" }, next: { revalidate } }),
       fetch(RPC, {
         method: "POST",
@@ -60,7 +72,10 @@ export async function GET(req: Request) {
       }),
       fetchDannyPrices(revalidate),
       fetchDannyLogos(),
+      readApprovedLogos(),
     ]);
+    // โลโก้ที่แอดมินอนุมัติ override โลโก้อัตโนมัติ (ให้ตรงกับ tokens route)
+    for (const [addr, url] of Object.entries(approvedLogos)) logoMap.set(addr.toLowerCase(), url);
 
     const holdings: Holding[] = [];
 
