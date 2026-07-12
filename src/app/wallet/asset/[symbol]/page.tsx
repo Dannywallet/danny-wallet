@@ -72,16 +72,34 @@ export default function AssetDetail() {
         const h: Holding | undefined = (pf.holdings || []).find((x: Holding) =>
           id === "native" ? x.isNative : (x.address || "").toLowerCase() === id
         );
-        if (!h) {
-          setState("notfound");
-          return;
-        }
         // native DAN ไม่มี entry ใน /tokens (ลิสต์เฉพาะ ERC-20) → ใช้ข้อมูล WDAN เป็นตัวแทน
         // (marketCap/วอลุ่มจาก dancharts + holders/supply จาก dannyscan)
         const matchId = id === "native" ? WDAN.toLowerCase() : id;
         const m: DannyToken | undefined = (tk.tokens || []).find(
           (x: DannyToken) => (x.address || "").toLowerCase() === matchId
         );
+        // ไม่ได้ถือเหรียญนี้ — ยังแสดงรายละเอียด/กราฟจากข้อมูลตลาด (ยอดถือครอง = 0)
+        if (!h) {
+          if (!m) {
+            setState("notfound");
+            return;
+          }
+          setHolding({
+            address: m.address,
+            symbol: m.symbol,
+            name: m.name,
+            balance: 0,
+            priceUsd: m.priceUsd,
+            valueUsd: 0,
+            change24h: m.change24h,
+            logo: m.logo,
+            isNative: false,
+          });
+          setMarket(m);
+          setTxs([]);
+          setState("ok");
+          return;
+        }
         const related = (act.txs || []).filter((t: Tx) => t.token === h.symbol);
         setHolding(h);
         setMarket(m || null);
@@ -98,13 +116,17 @@ export default function AssetDetail() {
   React.useEffect(() => {
     if (state !== "ok" || !holding) return;
     const pairAddr = market?.pair ?? (holding.isNative ? WDAN_USDT_PAIR : null);
-    if (!pairAddr) {
+    const tokenAddr = holding.isNative ? WDAN : holding.address;
+    if (!pairAddr && !tokenAddr) {
       setChartState("empty");
       return;
     }
     let alive = true;
     setChartState("loading");
-    fetch(`/api/danny/chart?pair=${pairAddr}&range=${range}`)
+    const qs = new URLSearchParams({ range });
+    if (pairAddr) qs.set("pair", pairAddr);
+    if (tokenAddr) qs.set("token", tokenAddr);
+    fetch(`/api/danny/chart?${qs.toString()}`)
       .then((r) => r.json())
       .then((j: { points?: ChartPoint[]; change24h?: number | null }) => {
         if (!alive) return;
@@ -165,6 +187,9 @@ export default function AssetDetail() {
 
   const up = (holding.change24h ?? 0) >= 0;
   const g = gradientFor(holding.address || holding.symbol);
+  // market cap: ใช้ค่าจาก dancharts ถ้ามี ไม่งั้นคำนวณ ราคา × total supply (รองรับเหรียญที่ไม่อยู่ dancharts)
+  const priceForCap = holding.priceUsd ?? market?.priceUsd ?? null;
+  const marketCap = market?.marketCap ?? (priceForCap && market?.totalSupply ? priceForCap * market.totalSupply : null);
   const explorerUrl = holding.address
     ? `${CHAIN.explorer}/token/${holding.address}`
     : `${CHAIN.explorer}/address/${MY_ADDRESS}`;
@@ -272,7 +297,7 @@ export default function AssetDetail() {
 
         {/* สถิติตลาดจริง */}
         <div className="mt-4 grid grid-cols-2 gap-2.5">
-          <Stat label={tr("asset.marketCap")} value={market?.marketCap ? `$${compact(market.marketCap)}` : "—"} />
+          <Stat label={tr("asset.marketCap")} value={marketCap ? `$${compact(marketCap)}` : "—"} />
           <Stat label={tr("asset.vol24h")} value={market?.vol24hUSD != null ? `$${compact(market.vol24hUSD)}` : "—"} />
           <Stat label={tr("asset.holders")} value={market?.holders ? compact(market.holders) : "—"} />
           <Stat label={tr("asset.totalSupply")} value={market?.totalSupply ? compact(market.totalSupply) : "—"} />

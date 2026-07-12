@@ -644,10 +644,14 @@ function CoinDetailView({ holding, address, onBack }: { holding: Holding; addres
 
   React.useEffect(() => {
     const pair = market?.pair ?? (holding.isNative ? WDAN_USDT_PAIR : null);
-    if (!pair) { setChartState("empty"); return; }
+    const tokenAddr = holding.isNative ? WDAN : holding.address;
+    if (!pair && !tokenAddr) { setChartState("empty"); return; }
     let alive = true;
     setChartState("loading");
-    fetch(`/api/danny/chart?pair=${pair}&range=${range}`).then((r) => r.json())
+    const qs = new URLSearchParams({ range });
+    if (pair) qs.set("pair", pair);
+    if (tokenAddr) qs.set("token", tokenAddr);
+    fetch(`/api/danny/chart?${qs.toString()}`).then((r) => r.json())
       .then((j: { points?: ChartPoint[] }) => {
         if (!alive) return;
         if (j.points && j.points.length >= 2) { setChart(j.points); setChartState("ok"); }
@@ -710,7 +714,7 @@ function CoinDetailView({ holding, address, onBack }: { holding: Holding; addres
 
       {/* stats */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <Stat label={tr("asset.marketCap")} value={market?.marketCap ? `$${compact(market.marketCap)}` : "—"} />
+        <Stat label={tr("asset.marketCap")} value={(() => { const p = holding.priceUsd ?? market?.priceUsd ?? null; const mc = market?.marketCap ?? (p && market?.totalSupply ? p * market.totalSupply : null); return mc ? `$${compact(mc)}` : "—"; })()} />
         <Stat label={tr("asset.vol24h")} value={market?.vol24hUSD != null ? `$${compact(market.vol24hUSD)}` : "—"} />
         <Stat label={tr("asset.holders")} value={market?.holders ? compact(market.holders) : "—"} />
         <Stat label={tr("asset.totalSupply")} value={market?.totalSupply ? compact(market.totalSupply) : "—"} />

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Contract, JsonRpcProvider } from "ethers";
 
 // กราฟราคาย้อนหลัง ~24 ชม. — ดึง Sync event ของ pool บนเชนมาคำนวณราคาเอง (วาดในธีมเรา)
 export const revalidate = 60;
@@ -8,7 +9,59 @@ const DANCHARTS_ALL = "https://dexchart.dancharts.com/pair/history/all";
 const SYNC_TOPIC = "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1";
 const USDT = "0xb9bfa68b6774612e66eb693c7a0d00b2eb6bcdee";
 const WDAN = "0xbee33b6b1c3df2c4468510e87d6330daa5709f3e";
+const FACTORY = "0x15acc1512ef2826d474a3ff9a8980eb9ce1471b9"; // dandex factory (UniswapV2)
+const ZERO = "0x0000000000000000000000000000000000000000";
 const CHUNK = 5000; // ลิมิต getLogs ของ RPC
+
+type PoolMeta = { pair: string; depIs0: boolean; depDec: number; quoteDec: number; quoteIsUsdt: boolean };
+
+// resolve pool + metadata จาก factory on-chain (สำหรับ token ที่ไม่อยู่บน dancharts เช่น GMX/SDC)
+// — หา pair กับ USDT ก่อน แล้วค่อย WDAN, เลือกอันที่มีสภาพคล่อง
+async function resolvePoolOnchain(opts: { token: string | null; pair: string | null }): Promise<PoolMeta | null> {
+  const provider = new JsonRpcProvider(RPC, 5069);
+  const pairAbi = [
+    "function token0() view returns (address)",
+    "function token1() view returns (address)",
+    "function getReserves() view returns (uint112,uint112,uint32)",
+  ];
+  const ercAbi = ["function decimals() view returns (uint8)"];
+
+  async function build(pairAddr: string, token: string, base: string): Promise<PoolMeta | null> {
+    const c = new Contract(pairAddr, pairAbi, provider);
+    let r0: bigint, r1: bigint;
+    try { const rr = await c.getReserves(); r0 = rr[0]; r1 = rr[1]; } catch { return null; }
+    if (r0 === 0n || r1 === 0n) return null;
+    const t0 = (await c.token0()).toLowerCase();
+    const depIs0 = t0 === token;
+    const depDec = Number(await new Contract(token, ercAbi, provider).decimals());
+    const quoteDec = Number(await new Contract(base, ercAbi, provider).decimals());
+    return { pair: pairAddr.toLowerCase(), depIs0, depDec, quoteDec, quoteIsUsdt: base === USDT };
+  }
+
+  if (opts.token) {
+    const factory = new Contract(FACTORY, ["function getPair(address,address) view returns (address)"], provider);
+    for (const base of [USDT, WDAN]) {
+      if (opts.token === base) continue;
+      let pairAddr: string;
+      try { pairAddr = (await factory.getPair(opts.token, base)).toLowerCase(); } catch { continue; }
+      if (!pairAddr || pairAddr === ZERO) continue;
+      const built = await build(pairAddr, opts.token, base);
+      if (built) return built;
+    }
+    return null;
+  }
+  if (opts.pair) {
+    // มีแต่ pair (ไม่อยู่ dancharts) → อ่าน token0/token1 หา base เพื่อกำหนดฝั่ง dep
+    const c = new Contract(opts.pair, pairAbi, provider);
+    let t0: string, t1: string;
+    try { t0 = (await c.token0()).toLowerCase(); t1 = (await c.token1()).toLowerCase(); } catch { return null; }
+    const base = [USDT, WDAN].find((b) => b === t0 || b === t1);
+    if (!base) return null;
+    const token = base === t0 ? t1 : t0;
+    return build(opts.pair, token, base);
+  }
+  return null;
+}
 const BLOCK_SEC = 2;
 // ช่วงเวลา → จำนวนบล็อก (~2 วิ/บล็อก) + จำนวนจุดเป้าหมายหลัง downsample
 const RANGES: Record<string, { blocks: number; target: number }> = {
@@ -43,11 +96,14 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const pair = (url.searchParams.get("pair") || "").trim().toLowerCase();
+  const pairParam = (url.searchParams.get("pair") || "").trim().toLowerCase();
+  const tokenParam = (url.searchParams.get("token") || "").trim().toLowerCase();
   const rangeKey = (url.searchParams.get("range") || "24h").toLowerCase();
   const range = RANGES[rangeKey] ?? RANGES["24h"];
-  if (!/^0x[a-fA-F0-9]{40}$/.test(pair)) {
-    return NextResponse.json({ error: "pair ไม่ถูกต้อง", points: [] }, { status: 400 });
+  const hasPair = /^0x[a-f0-9]{40}$/.test(pairParam);
+  const hasToken = /^0x[a-f0-9]{40}$/.test(tokenParam);
+  if (!hasPair && !hasToken) {
+    return NextResponse.json({ error: "ต้องระบุ pair หรือ token", points: [] }, { status: 400 });
   }
 
   try {
@@ -55,16 +111,24 @@ export async function GET(req: Request) {
     const meta = await fetch(DANCHARTS_ALL, { headers: { Accept: "application/json" }, next: { revalidate } })
       .then((r) => r.json())
       .then((j) => (j?.success?.data || []) as any[]);
-    const entry = meta.find((e) => (e.pair || "").toLowerCase() === pair);
-    if (!entry) return NextResponse.json({ error: "ไม่พบคู่เทรด", points: [] }, { status: 404 });
-
-    const dep = (entry.dependantToken || "").toLowerCase();
-    const quote = (entry.mainToken || "").toLowerCase();
-    const depIs0 = (entry.token0?.contract || "").toLowerCase() === dep;
-    const depDec = Number((depIs0 ? entry.token0 : entry.token1)?.decimals ?? 18);
-    const quoteDec = Number((depIs0 ? entry.token1 : entry.token0)?.decimals ?? 18);
-    const quoteIsUsdt = quote === USDT;
     const wdanUsd = meta.find((e) => (e.dependantToken || "").toLowerCase() === WDAN)?.value ?? null;
+
+    // หา metadata ของ pool: dancharts ก่อน (มี pair ตรง) → ถ้าไม่มีก็ resolve เองจาก factory on-chain
+    let pair: string, depIs0: boolean, depDec: number, quoteDec: number, quoteIsUsdt: boolean;
+    const entry = hasPair ? meta.find((e) => (e.pair || "").toLowerCase() === pairParam) : undefined;
+    if (entry) {
+      const dep = (entry.dependantToken || "").toLowerCase();
+      const quote = (entry.mainToken || "").toLowerCase();
+      pair = pairParam;
+      depIs0 = (entry.token0?.contract || "").toLowerCase() === dep;
+      depDec = Number((depIs0 ? entry.token0 : entry.token1)?.decimals ?? 18);
+      quoteDec = Number((depIs0 ? entry.token1 : entry.token0)?.decimals ?? 18);
+      quoteIsUsdt = quote === USDT;
+    } else {
+      const resolved = await resolvePoolOnchain({ token: hasToken ? tokenParam : null, pair: hasPair ? pairParam : null });
+      if (!resolved) return NextResponse.json({ error: "ไม่พบคู่เทรด/สภาพคล่อง", points: [] }, { status: 404 });
+      ({ pair, depIs0, depDec, quoteDec, quoteIsUsdt } = resolved);
+    }
 
     // 2) ช่วงบล็อก + เวลาปัจจุบัน
     const curHex = await rpc("eth_blockNumber", [], revalidate);
