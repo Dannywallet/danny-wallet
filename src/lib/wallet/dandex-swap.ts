@@ -1,7 +1,7 @@
 "use client";
 
 // เซ็นด้วยกุญแจในแอป (บัญชีที่ใช้งานอยู่) + ทำ swap/send จริงผ่าน RPC ของ Danny Chain 5069
-import { Contract, JsonRpcProvider, Wallet, parseUnits, type Provider } from "ethers";
+import { Contract, JsonRpcProvider, Wallet, parseUnits, formatUnits, type Provider } from "ethers";
 
 export const CHAIN_ID = 5069;
 export const CHAIN_ID_HEX = "0x" + (5069).toString(16);
@@ -505,5 +505,43 @@ export async function estimateSwapFee(opts: {
     return Number(((gas * 12n) / 10n) * ((gasPrice * 12n) / 10n)) / 1e18;
   } catch {
     return null; // ยังไม่ approve / ยอดไม่พอ → ประเมินไม่ได้
+  }
+}
+
+/**
+ * quote ราคาจริงจาก router on-chain (getAmountsOut ผ่านเส้นทางที่ดีที่สุด แบบเดียวกับ executeSwap)
+ * — ใช้แทนการคำนวณจาก priceUsd (off-chain) ที่บาง token เป็น null/เพี้ยน จึง swap ไม่ได้ทั้งที่มีสภาพคล่อง
+ * คืน { out, rate } (out = จำนวนที่จะได้รับจริง, rate = out ต่อ 1 หน่วย input) หรือ null ถ้าไม่มีเส้นทาง
+ */
+export async function quoteSwap(opts: {
+  fromToken: SwapToken;
+  toToken: SwapToken;
+  amount: string;
+}): Promise<{ out: number; rate: number } | null> {
+  try {
+    const provider = new JsonRpcProvider(RPC, CHAIN_ID);
+    const fromNative = opts.fromToken.address == null;
+    const toNative = opts.toToken.address == null;
+    const fromAddr = fromNative ? WDAN : (opts.fromToken.address as string);
+    const toAddr = toNative ? WDAN : (opts.toToken.address as string);
+    if (fromAddr.toLowerCase() === toAddr.toLowerCase()) return null;
+
+    let inDec = fromNative ? 18 : opts.fromToken.decimals ?? 0;
+    if (!fromNative && !inDec) inDec = Number(await new Contract(fromAddr, ERC20_ABI, provider).decimals());
+    let outDec = toNative ? 18 : opts.toToken.decimals ?? 0;
+    if (!toNative && !outDec) outDec = Number(await new Contract(toAddr, ERC20_ABI, provider).decimals());
+
+    const amountIn = parseUnits(opts.amount, inDec);
+    if (amountIn <= 0n) return null;
+
+    const router = new Contract(ROUTER, ROUTER_ABI, provider);
+    const best = await pickBestPath(router as unknown as RouterLike, amountIn, fromAddr, toAddr);
+    if (!best || best.out <= 0n) return null;
+
+    const outNum = Number(formatUnits(best.out, outDec));
+    const inNum = Number(formatUnits(amountIn, inDec));
+    return { out: outNum, rate: inNum > 0 ? outNum / inNum : 0 };
+  } catch {
+    return null;
   }
 }

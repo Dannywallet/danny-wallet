@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@/lib/wallet/wallet-store";
 import { useSwapTokens, type WToken } from "@/lib/wallet/use-holdings";
 import { useTxAlerts } from "@/lib/wallet/use-tx-alerts";
-import { executeSwap, estimateSwapFee, executeSend, estimateSendFee, explorerTx, clearStuckTransactions, getStuckCount } from "@/lib/wallet/dandex-swap";
+import { executeSwap, estimateSwapFee, quoteSwap, executeSend, estimateSendFee, explorerTx, clearStuckTransactions, getStuckCount } from "@/lib/wallet/dandex-swap";
 import { CHAIN, type Tx } from "@/lib/wallet/mock-data";
 import { formatUsd, formatToken, shortAddress, accountLabel } from "@/lib/wallet/format";
 import type { Holding } from "@/app/api/danny/portfolio/route";
@@ -779,8 +779,25 @@ function SwapView() {
   }, [state, tokens, from]);
 
   const amt = parseFloat(amount) || 0;
-  const rate = from?.priceUsd && to?.priceUsd ? from.priceUsd / to.priceUsd : null;
-  const out = rate != null ? amt * rate : 0;
+  // ราคาจาก router on-chain จริง (getAmountsOut) — รองรับ token ที่ priceUsd เป็น null/เพี้ยน
+  const [quote, setQuote] = React.useState<{ out: number; rate: number } | null | "loading">(null);
+  React.useEffect(() => {
+    if (!from || !to || amt <= 0) { setQuote(null); return; }
+    let alive = true;
+    setQuote("loading");
+    const id = setTimeout(async () => {
+      const q = await quoteSwap({
+        fromToken: { address: from.address, symbol: from.symbol },
+        toToken: { address: to.address, symbol: to.symbol },
+        amount,
+      });
+      if (alive) setQuote(q);
+    }, 400);
+    return () => { alive = false; clearTimeout(id); };
+  }, [from, to, amount, amt]);
+  const quoting = quote === "loading";
+  const rate = quote && quote !== "loading" ? quote.rate : null;
+  const out = quote && quote !== "loading" ? quote.out : 0;
   const enough = !!from && amt > 0 && amt <= from.balance;
   const flip = () => { setFrom(to); setTo(from); setAmount(""); };
 
@@ -842,11 +859,11 @@ function SwapView() {
           <div className="relative space-y-2">
             <SwapBox label={tr("swap.pay")} token={from} tokens={tokens} amount={amount} onAmount={setAmount} onSelect={(t) => { if (t.symbol === to.symbol) setTo(from); setFrom(t); }} max onMax={() => setAmount(String(from.balance))} />
             <button onClick={flip} className="dw-btn-primary absolute left-1/2 top-1/2 z-10 grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full" aria-label={tr("swap.flipDir")}><SwapIcon size={20} /></button>
-            <SwapBox label={tr("common.receive")} token={to} tokens={tokens} amount={amt && rate != null ? formatToken(out) : ""} readOnly onSelect={(t) => { if (t.symbol === from.symbol) setFrom(to); setTo(t); }} />
+            <SwapBox label={tr("common.receive")} token={to} tokens={tokens} amount={rate != null ? formatToken(out) : quoting ? "…" : ""} readOnly onSelect={(t) => { if (t.symbol === from.symbol) setFrom(to); setTo(t); }} />
           </div>
 
           <div className="dw-glass space-y-3 rounded-2xl p-4 text-sm">
-            <div className="flex justify-between"><span className="text-[var(--dw-muted)]">{tr("swap.rate")}</span><span className="font-medium">{rate != null ? `1 ${from.symbol} ≈ ${formatToken(rate)} ${to.symbol}` : tr("common.noPrice")}</span></div>
+            <div className="flex justify-between"><span className="text-[var(--dw-muted)]">{tr("swap.rate")}</span><span className="font-medium">{quoting ? "…" : rate != null ? `1 ${from.symbol} ≈ ${formatToken(rate)} ${to.symbol}` : tr("common.noPrice")}</span></div>
             <div className="flex items-center justify-between">
               <span className="text-[var(--dw-muted)]">Slippage</span>
               <div className="flex gap-1.5">{[0.5, 1, 2].map((s) => <button key={s} onClick={() => setSlippage(s)} className={`rounded-lg px-2.5 py-0.5 text-xs ${slippage === s ? "dw-btn-primary" : "dw-btn-ghost text-[var(--dw-muted)]"}`}>{s}%</button>)}</div>
@@ -858,8 +875,8 @@ function SwapView() {
             <Shield size={15} className="mt-0.5 shrink-0 text-[var(--dw-green)]" /> {tr("swap.routerNote1")} {address ? shortAddress(address) : ""} {tr("swap.routerNote2")}
           </div>
 
-          <button onClick={openPin} disabled={!enough || rate == null} className="dw-btn-primary w-full rounded-2xl py-4 font-semibold disabled:opacity-50">
-            {rate == null ? tr("swap.noPair") : !amt ? tr("swap.enterAmount") : !enough ? tr("swap.insufficient") : tr("swap.swapPin")}
+          <button onClick={openPin} disabled={!enough || quoting || rate == null} className="dw-btn-primary w-full rounded-2xl py-4 font-semibold disabled:opacity-50">
+            {!amt ? tr("swap.enterAmount") : quoting ? tr("tx.estimating") : rate == null ? tr("swap.noPair") : !enough ? tr("swap.insufficient") : tr("swap.swapPin")}
           </button>
         </>
       )}

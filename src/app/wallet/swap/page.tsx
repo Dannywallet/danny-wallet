@@ -10,7 +10,7 @@ import { formatUsd, formatToken } from "@/lib/wallet/format";
 import { Sheet } from "@/components/wallet/Sheet";
 import { useWallet } from "@/lib/wallet/wallet-store";
 import { Swap as SwapIcon, ChevronRight, Check, Shield, Warn } from "@/components/wallet/Icons";
-import { executeSwap, estimateSwapFee, explorerTx } from "@/lib/wallet/dandex-swap";
+import { executeSwap, estimateSwapFee, quoteSwap, explorerTx } from "@/lib/wallet/dandex-swap";
 import { shortAddress } from "@/lib/wallet/format";
 import { useI18n } from "@/lib/wallet/i18n";
 
@@ -60,8 +60,25 @@ export default function SwapPage() {
   }, [state, tokens, from]);
 
   const amt = parseFloat(amount) || 0;
-  const rate = from?.priceUsd && to?.priceUsd ? from.priceUsd / to.priceUsd : null;
-  const out = rate != null ? amt * rate : 0;
+  // ราคาจาก router on-chain จริง (getAmountsOut) — รองรับ token ที่ priceUsd เป็น null/เพี้ยน
+  const [quote, setQuote] = React.useState<{ out: number; rate: number } | null | "loading">(null);
+  React.useEffect(() => {
+    if (!from || !to || amt <= 0) { setQuote(null); return; }
+    let alive = true;
+    setQuote("loading");
+    const id = setTimeout(async () => {
+      const q = await quoteSwap({
+        fromToken: { address: from.address, symbol: from.symbol },
+        toToken: { address: to.address, symbol: to.symbol },
+        amount,
+      });
+      if (alive) setQuote(q);
+    }, 400);
+    return () => { alive = false; clearTimeout(id); };
+  }, [from, to, amount, amt]);
+  const quoting = quote === "loading";
+  const rate = quote && quote !== "loading" ? quote.rate : null;
+  const out = quote && quote !== "loading" ? quote.out : 0;
   const enough = !!from && amt > 0 && amt <= from.balance;
 
   const flip = () => {
@@ -208,7 +225,7 @@ export default function SwapPage() {
               <SwapBox
                 label={t("common.receive")}
                 token={to}
-                amount={amt && rate != null ? formatToken(out) : ""}
+                amount={rate != null ? formatToken(out) : quoting ? "…" : ""}
                 readOnly
                 onPick={() => setPicking("to")}
               />
@@ -236,7 +253,7 @@ export default function SwapPage() {
               <div className="flex justify-between">
                 <span className="text-[var(--dw-muted)]">{t("swap.rate")}</span>
                 <span className="font-medium">
-                  {rate != null ? `1 ${from.symbol} ≈ ${formatToken(rate)} ${to.symbol}` : t("common.noPrice")}
+                  {quoting ? "…" : rate != null ? `1 ${from.symbol} ≈ ${formatToken(rate)} ${to.symbol}` : t("common.noPrice")}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -270,10 +287,10 @@ export default function SwapPage() {
 
             <button
               onClick={openPin}
-              disabled={!enough || rate == null}
+              disabled={!enough || quoting || rate == null}
               className="dw-btn-primary mt-5 w-full rounded-2xl py-4 font-semibold"
             >
-              {rate == null ? t("swap.noPair") : !amt ? t("swap.enterAmount") : !enough ? t("swap.insufficient") : t("swap.swapPin")}
+              {!amt ? t("swap.enterAmount") : quoting ? t("tx.estimating") : rate == null ? t("swap.noPair") : !enough ? t("swap.insufficient") : t("swap.swapPin")}
             </button>
           </div>
         )}
