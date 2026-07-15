@@ -136,7 +136,10 @@ export async function GET(req: Request) {
     //    เก็บไว้ในรายการแต่ flag ไว้ ฝั่ง UI เลือกซ่อน/แสดงเองได้ และไม่นับรวมยอด
     for (const t of owned) {
       const addrL = (t.address || "").toLowerCase();
-      const price = dandex.prices.get(addrL) ?? prices.get(addrL)?.priceUsd ?? null;
+      // ตีมูลค่าจากราคา on-chain (reserves ของพูลสภาพคล่องสูงสุด) เท่านั้น —
+      // ไม่ใช้ราคา dancharts เป็น fallback เพราะบางเหรียญให้ค่าที่เพี้ยนมหาศาล (พูลถูกทิ้ง)
+      // → ทำให้ยอดรวมพอร์ตพองเกินจริง เหรียญที่ไม่มีพูลจริงจะถูก flag เป็น spam และไม่นับยอด
+      const price = dandex.prices.get(addrL) ?? null;
       const spam = price == null || isScamName(t.symbol, t.name);
       holdings.push({
         address: t.address,

@@ -137,16 +137,16 @@ export async function fetchDandexPrices(
   // USDT คือตัวอ้างอิง USD (≈ $1) — ตั้งราคาตายตัวกันราคาหาย/เพี้ยนจาก RPC ที่แกว่ง
   prices.set(USDT.toLowerCase(), 1);
 
-  // pair address ของแต่ละ token (คู่กับ WDAN)
-  const pairs = await Promise.all(
-    tokens.map((t) =>
-      t.address.toLowerCase() === WDAN.toLowerCase()
-        ? Promise.resolve(ZERO)
-        : getPair(t.address, WDAN, revalidate).catch(() => ZERO)
-    )
-  );
+  // เลือกพูลที่ "สภาพคล่องสูงสุด" ของแต่ละ token จาก {WDAN, USDT}
+  // — หลายเหรียญมีสภาพคล่องอยู่คู่ USDT ไม่ใช่ WDAN (GMX/SDC/DS ฯลฯ)
+  // — พูลที่ฝั่ง quote แทบว่าง (liq ≈ 0) จะให้ราคาพุ่งมหาศาล จึงกันด้วย MIN_POOL_LIQ_USD
+  const QUOTE_BASES: { base: string; baseDec: number; baseUsd: number; isUsdt: boolean }[] = [
+    { base: WDAN, baseDec: WDAN_DEC, baseUsd: wUsd, isUsdt: false },
+    { base: USDT, baseDec: USDT_DEC, baseUsd: 1, isUsdt: true },
+  ];
+  // เก็บพูลที่เลือกไว้ต่อ token (ใช้คำนวณ %24ชม. ต่อ)
+  const chosen: ({ pair: string; isUsdt: boolean } | null)[] = new Array(tokens.length).fill(null);
 
-  // ราคาปัจจุบันจาก reserves
   await Promise.all(
     tokens.map(async (t, i) => {
       const addrL = t.address.toLowerCase();
@@ -154,16 +154,24 @@ export async function fetchDandexPrices(
         prices.set(addrL, wUsd);
         return;
       }
-      if (pairs[i] === ZERO) return;
-      const res = await getReserves(pairs[i], revalidate).catch(() => null);
-      if (!res) return;
-      // กันพูลสภาพคล่องต่ำ/ถูกทิ้ง: ดูมูลค่าฝั่ง WDAN ของพูลนี้
-      // (เช่น พูลที่เหลือ token เพียง 1 wei จะทำให้ราคา = reserveWDAN/reserveToken พุ่งมหาศาล)
-      const wdanReserve = Number(isToken0(t.address, WDAN) ? res[1] : res[0]) / 10 ** WDAN_DEC;
-      if (wdanReserve * wUsd < MIN_POOL_LIQ_USD) return; // เชื่อถือไม่ได้ → fallback ไป dancharts
-      const p = priceFromReserves(res, t.address, t.decimals, WDAN, WDAN_DEC);
-      if (p == null || p <= 0) return;
-      prices.set(addrL, p * wUsd);
+      let best: { price: number; liq: number; pair: string; isUsdt: boolean } | null = null;
+      for (const { base, baseDec, baseUsd, isUsdt } of QUOTE_BASES) {
+        if (addrL === base.toLowerCase()) continue;
+        const pair = await getPair(t.address, base, revalidate).catch(() => ZERO);
+        if (pair === ZERO) continue;
+        const res = await getReserves(pair, revalidate).catch(() => null);
+        if (!res) continue;
+        const baseReserve = Number(isToken0(t.address, base) ? res[1] : res[0]) / 10 ** baseDec;
+        const liq = baseReserve * baseUsd; // มูลค่าสภาพคล่องฝั่ง quote (USD)
+        if (liq < MIN_POOL_LIQ_USD) continue; // พูลบาง/ถูกทิ้ง → ข้าม (กันราคาเพี้ยน)
+        const pInBase = priceFromReserves(res, t.address, t.decimals, base, baseDec);
+        if (pInBase == null || pInBase <= 0) continue;
+        if (!best || liq > best.liq) best = { price: pInBase * baseUsd, liq, pair, isUsdt };
+      }
+      if (best) {
+        prices.set(addrL, best.price);
+        chosen[i] = { pair: best.pair, isUsdt: best.isUsdt };
+      }
     })
   );
 
@@ -188,12 +196,17 @@ export async function fetchDandexPrices(
             if (wUsdThen && wUsdThen > 0) change24h.set(addrL, ((now - wUsdThen) / wUsdThen) * 100);
             return;
           }
-          if (pairs[i] === ZERO || !wUsdThen) return;
-          const resThen = await lastSyncReserves(pairs[i], from, to, revalidate);
+          const ch = chosen[i];
+          if (!ch) return;
+          // พูลที่ quote เป็น WDAN ต้องมีราคา WDAN เมื่อ 24 ชม.ก่อน
+          if (!ch.isUsdt && !wUsdThen) return;
+          const resThen = await lastSyncReserves(ch.pair, from, to, revalidate);
           if (!resThen) return;
-          const inWdan = priceFromReserves(resThen, t.address, t.decimals, WDAN, WDAN_DEC);
-          if (inWdan == null || inWdan <= 0) return;
-          const thenUsd = inWdan * wUsdThen;
+          const base = ch.isUsdt ? USDT : WDAN;
+          const baseDec = ch.isUsdt ? USDT_DEC : WDAN_DEC;
+          const inBase = priceFromReserves(resThen, t.address, t.decimals, base, baseDec);
+          if (inBase == null || inBase <= 0) return;
+          const thenUsd = ch.isUsdt ? inBase : inBase * (wUsdThen as number);
           if (thenUsd > 0) change24h.set(addrL, ((now - thenUsd) / thenUsd) * 100);
         })
       );

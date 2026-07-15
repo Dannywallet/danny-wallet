@@ -132,20 +132,25 @@ export async function GET() {
       .map((t) => {
         const decimals = Number(t.decimals ?? "18") || 18;
         const addrL = (t.address || "").toLowerCase();
+        const supply = toUnits(t.total_supply, decimals);
         const dc = priceMap.get(addrL); // dancharts (สำหรับ %24ชม., วอลุ่ม, mcap)
         const onchain = dandex.prices.get(addrL); // dandex on-chain (ราคาหลัก)
-        const priceUsd = onchain ?? dc?.priceUsd ?? (t.exchange_rate ? Number(t.exchange_rate) : null);
+        let priceUsd = onchain ?? dc?.priceUsd ?? (t.exchange_rate ? Number(t.exchange_rate) : null);
+        // กันราคา off-chain (dancharts) ที่เพี้ยนจนมูลค่าตลาดเป็นไปไม่ได้ (พูลถูกทิ้ง/ปั่น) — เช่น AOS/DS
+        if (onchain == null && priceUsd != null && supply > 0 && priceUsd * supply > 1e11) priceUsd = null;
+        const mcapRaw = dc?.mcap ?? (t.circulating_market_cap ? Number(t.circulating_market_cap) : null);
+        const marketCap = mcapRaw != null && mcapRaw <= 1e11 ? mcapRaw : (priceUsd != null && supply > 0 ? priceUsd * supply : null);
         return {
           address: t.address,
           name: t.name?.trim() || "Unknown",
           symbol: t.symbol?.trim() || "?",
           decimals,
           holders: Number(t.holders ?? "0") || 0,
-          totalSupply: toUnits(t.total_supply, decimals),
+          totalSupply: supply,
           priceUsd,
           change24h: dandex.change24h.get(addrL) ?? dc?.change24h ?? null,
           vol24hUSD: dc?.vol24hUSD ?? null,
-          marketCap: dc?.mcap ?? (t.circulating_market_cap ? Number(t.circulating_market_cap) : null),
+          marketCap,
           logo: logoMap.get(addrL) ?? null,
           pair: dc?.pair ?? null,
           type: t.type ?? "ERC-20",
