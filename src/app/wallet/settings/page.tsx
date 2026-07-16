@@ -11,6 +11,7 @@ import { DannyLogo } from "@/components/wallet/DannyLogo";
 import { LanguageToggle } from "@/components/wallet/LanguageToggle";
 import { useI18n } from "@/lib/wallet/i18n";
 import { SeedPhraseGrid } from "@/components/wallet/SeedPhraseGrid";
+import { QrCode } from "@/components/wallet/QrCode";
 import { copyEphemeral } from "@/lib/wallet/clipboard";
 import { CHAIN } from "@/lib/wallet/mock-data";
 import { AccountSwitcher } from "@/components/wallet/AccountSwitcher";
@@ -146,6 +147,8 @@ export default function SettingsPage() {
   const [revealPin, setRevealPin] = React.useState("");
   const [revealedSeed, setRevealedSeed] = React.useState<string[] | null>(null);
   const [revealErr, setRevealErr] = React.useState(false);
+  // แสดงวลีเป็น QR เพื่อให้ Danny Wallet extension สแกนซิงค์ได้
+  const [seedQr, setSeedQr] = React.useState(false);
 
   const doReveal = async () => {
     setRevealErr(false);
@@ -158,6 +161,7 @@ export default function SettingsPage() {
     setRevealPin("");
     setRevealedSeed(null);
     setRevealErr(false);
+    setSeedQr(false);
   };
 
   React.useEffect(() => {
@@ -417,13 +421,33 @@ export default function SettingsPage() {
           </div>
         ) : (
           <div>
-            <SeedPhraseGrid words={revealedSeed} />
+            {seedQr ? (
+              <>
+                <div className="mx-auto w-fit rounded-2xl bg-white p-3">
+                  <QrCode value={revealedSeed.join(" ")} size={200} />
+                </div>
+                <p className="mt-3 flex items-start gap-1.5 text-center text-[11px] text-[var(--dw-rose)]">
+                  <Warn size={13} className="mt-0.5 shrink-0" /> {t("settings.syncQrWarn")}
+                </p>
+              </>
+            ) : (
+              <SeedPhraseGrid words={revealedSeed} />
+            )}
+            {/* สลับ คำ ↔ QR (QR ใช้ให้ extension สแกนซิงค์กระเป๋า) */}
             <button
-              onClick={() => copyEphemeral(revealedSeed.join(" "), 30_000)}
+              onClick={() => setSeedQr((v) => !v)}
               className="dw-btn-ghost mt-3 w-full rounded-xl py-2.5 text-sm"
             >
-              {t("settings.copyClear")}
+              {seedQr ? t("settings.showWords") : t("settings.syncQr")}
             </button>
+            {!seedQr && (
+              <button
+                onClick={() => copyEphemeral(revealedSeed.join(" "), 30_000)}
+                className="dw-btn-ghost mt-2 w-full rounded-xl py-2.5 text-sm"
+              >
+                {t("settings.copyClear")}
+              </button>
+            )}
             <p className="mt-3 text-center text-[11px] text-[var(--dw-muted)]">
               {t("settings.seedOffline")}
             </p>
