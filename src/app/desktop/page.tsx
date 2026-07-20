@@ -875,7 +875,11 @@ function SwapView() {
         <>
           <div className="relative space-y-2">
             <SwapBox label={tr("swap.pay")} token={from} tokens={tokens} amount={amount} onAmount={setAmount} onSelect={(t) => { if (t.symbol === to.symbol) setTo(from); setFrom(t); }} max onMax={() => setAmount(String(from.balance))} />
-            <button onClick={flip} title={tr("swap.flipDir")} className="dw-btn-primary absolute left-1/2 top-1/2 z-10 grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[3px] border-[var(--dw-bg)] shadow-[0_6px_18px_-4px_rgba(124,58,237,0.55)] transition hover:scale-110 active:scale-95" aria-label={tr("swap.flipDir")}><SwapIcon size={20} /></button>
+            {/* จัดกึ่งกลางที่ wrapper — กัน .dw-btn-primary:active { transform: scale() } เขียนทับ translate
+                (ปุ่มจะกระโดดตอนกด ทำให้ click ไม่ติด) */}
+            <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
+              <button onClick={flip} title={tr("swap.flipDir")} aria-label={tr("swap.flipDir")} className="dw-btn-primary grid h-11 w-11 place-items-center rounded-full border-[3px] border-[var(--dw-bg)] shadow-[0_6px_18px_-4px_rgba(124,58,237,0.55)] transition hover:scale-110"><SwapIcon size={20} /></button>
+            </div>
             <SwapBox label={tr("common.receive")} token={to} tokens={tokens} amount={rate != null ? formatToken(out) : quoting ? "…" : ""} readOnly onSelect={(t) => { if (t.symbol === from.symbol) setFrom(to); setTo(t); }} />
           </div>
 
