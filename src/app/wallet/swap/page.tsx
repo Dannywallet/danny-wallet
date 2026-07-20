@@ -217,7 +217,8 @@ export default function SwapPage() {
               />
               <button
                 onClick={flip}
-                className="dw-btn-primary absolute left-1/2 top-1/2 z-10 grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full"
+                title={t("swap.flipDir")}
+                className="dw-btn-primary absolute left-1/2 top-1/2 z-10 grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[3px] border-[var(--dw-bg)] shadow-[0_6px_18px_-4px_rgba(124,58,237,0.55)] transition hover:scale-110 active:scale-95"
                 aria-label={t("swap.flipDir")}
               >
                 <SwapIcon size={20} />
