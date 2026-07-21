@@ -78,11 +78,16 @@ export async function GET(req: Request) {
         const isOut = t.from?.hash?.toLowerCase() === lower;
         const amt = amount(t.total?.value, t.token?.decimals ?? t.total?.decimals ?? null);
         const price = prices.get((t.token?.address || "").toLowerCase())?.priceUsd ?? null;
+        // ขา "จ่าย" ของธุรกรรม swap (method ขึ้นต้น swap*) → ติดป้ายเป็น swap ไม่ใช่ "ส่ง"
+        // (swap → DAN ปลายทางเป็น native ที่ explorer ไม่ index จึงระบุ toToken เอง)
+        const isSwapOut = isOut && /swap/i.test(t.method || "");
+        const toDan = /for\s*eth/i.test(t.method || "");
         return {
           id: `${t.tx_hash}-tt${i}`,
           hash: t.tx_hash,
-          type: isOut ? "send" : "receive",
+          type: isSwapOut ? "swap" : isOut ? "send" : "receive",
           token: t.token.symbol || "?",
+          toToken: isSwapOut && toDan ? "DAN" : undefined,
           amount: amt,
           valueUsd: price != null ? amt * price : null,
           counterparty: short((isOut ? t.to?.hash : t.from?.hash) || ""),
