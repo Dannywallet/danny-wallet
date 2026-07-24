@@ -1,5 +1,7 @@
 // โลโก้ token จาก token list ของ dandex (chainId 5069) — สกัดจาก tokenlist ของ DEX
 // address(lowercase) → logoURI
+// อัปเดตให้ตรงกับลิสต์ปัจจุบันของ dandex.io/swap (25 tokens) — sync ด้วยการสกัดจาก DEX bundle
+// วิธี refresh: เปิด dandex.io/swap → รวมสคริปต์ → regex object ที่มี chainId 5069 + address + logoURI
 export const DANDEX_TOKEN_LOGOS: Record<string, string> = {
   "0xb9bfa68b6774612e66eb693c7a0d00b2eb6bcdee": "https://tokens.pancakeswap.finance/images/0x55d398326f99059fF775485246999027B3197955.png",
   "0xbee33b6b1c3df2c4468510e87d6330daa5709f3e": "https://alchemy.mypinata.cloud/ipfs/bafkreie27igwnkm4kcrfxxgpl7gwigho5hullgiczzacxh4hofkfg6hxda",
@@ -15,10 +17,16 @@ export const DANDEX_TOKEN_LOGOS: Record<string, string> = {
   "0x946447082dfacdeaf42bf40d950450dc593077ce": "https://alchemy.mypinata.cloud/ipfs/bafybeibti4ccnfrjajgt5nj7x42hswj2x47fbdnwj2yvm3t7zls7j3s7au",
   "0xb8ce109cf97b614b562a5e274c8df22526f190a9": "https://alchemy.mypinata.cloud/ipfs/bafybeieejpxjlz62e2g5vjgxk4xkxlymps4naelxym4ipgf5wnluegiuai",
   "0xd84b7c96c23bab37b585bac98dfe6651d30f6c11": "https://alchemy.mypinata.cloud/ipfs/bafybeih46chzyba3hccy2jclemcvi6p6bbmba37bqruc3q43mybmirgtce",
-  "0x0df1e0a50f78b38d4d34931982ed793af72a0055": "https://alchemy.mypinata.cloud/ipfs/bafkreiaqetlvv6dxb4epgpdbrlxvxfb754p3pglts6kp2hlzgmu6zmmvva",
+  "0x0df1e0a50f78b38d4d34931982ed793af72a0055": "https://alchemy.mypinata.cloud/ipfs/bafybeihufh2jz7jaugvajr6beqcvosd5xut3itahnzbjm4v6wa2r3ycj2u",
   "0xbb56087232478f5a54982a4174f6887fbefeec24": "https://alchemy.mypinata.cloud/ipfs/bafkreignekgnbqe4l6aagicxpwubug6e4evmsfxrzjd3jlwa6q4ld55vxe",
   "0x01c2596a7bf1d647123bd707c0b294188739cb8d": "https://alchemy.mypinata.cloud/ipfs/bafybeih4g4xvnk26strfqm2rlfshgfum53e2vvr4jnpybfypvtd6mytfn4",
   "0x210f2a3709ba0ac935daf6566ecbff08c675a420": "https://alchemy.mypinata.cloud/ipfs/bafybeiejgysmwar3x47stfkedxbmiw4xqcncqxyzo7thqb2ekzajmfwaza",
-  // CHRISTIAN (CHRISTIANCOIN) — โลโก้จาก dandex/dancharts
-  "0x9b5a98b2d128da433c3fa109b9b2d09d2b5df5d6": "https://alchemy.mypinata.cloud/ipfs/bafkreicajio7isygifxpxr7t4giytfqvvemy4zkq2k6frwmz6bf5zyuwia",
+  "0x9b5a98b2d128da433c3fa109b9b2d09d2b5df5d6": "https://alchemy.mypinata.cloud/ipfs/bafybeihgwsnhgf3gyukmt22nftiab3w4xzdr5urz4yos5odgktzrlydkqa",
+  // ตัวใหม่ที่ dandex list เพิ่ม
+  "0x6f22d0eab6ddac3d36b9f3043c3524fd4b7936a7": "https://alchemy.mypinata.cloud/ipfs/bafybeialhse5l7dgiflzmprfmacdz5rfmw7pfe3gt4hbp3qgulrd4tnblq", // LD
+  "0x772f9a3f5a968f15980e304931b02c4161306b3c": "https://alchemy.mypinata.cloud/ipfs/bafybeif3lcrnyiqgcsfzudteazwi6d6u3zol77jbc5njldttqadvkcrf5y", // YOK
+  "0x9d2eac189382a73380c7a7a5b82e24ab8ce512c0": "https://alchemy.mypinata.cloud/ipfs/bafybeifbc5so2zexmwssasuog3j253zqicvfx25krgc3yyojlnnsra4px4", // EARTH
+  "0xb64fc6bfe07bc244fc7c3981347bf13284423fb7": "https://alchemy.mypinata.cloud/ipfs/bafybeiaydsx7rpbdam6dkeiqtrim3jmdcemxfekxjnoqwj73zkuz7dgmnu", // VIN
+  "0xd30f6a095228166a4a39b4463fb5df847a855943": "https://alchemy.mypinata.cloud/ipfs/bafybeiavzj2k64avqnwk5iqc2xfskpsbrmppitfphyz4jjsxy63uvikgyy", // SUCCESS
+  "0xf7154740c79c2228cecf5e498f96a8e68c37e5d9": "https://alchemy.mypinata.cloud/ipfs/bafybeicfxstauneh3y4cylhyute7au6hfqpm4awh6fag6ekc344vtzxodm", // AOS
 };
