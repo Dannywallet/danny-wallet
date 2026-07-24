@@ -4,15 +4,17 @@ import path from "path";
 import { fetchDannyPrices, nativeDanPrice, fetchDannyLogos, WDAN } from "@/lib/wallet/danny-prices";
 import { fetchDandexPrices } from "@/lib/wallet/dandex-prices";
 
-// โลโก้ที่แอดมินอนุมัติ (override โลโก้อัตโนมัติ) — ไฟล์เดียวกับที่ tokens route ใช้
-async function readApprovedLogos(): Promise<Record<string, string>> {
+// อ่านไฟล์ logo override ใน data/ (runtime volume) — ไฟล์เดียวกับที่ tokens route ใช้
+async function readLogoFile(name: string): Promise<Record<string, string>> {
   try {
-    const raw = await fs.readFile(path.join(process.cwd(), "data", "approved-logos.json"), "utf8");
+    const raw = await fs.readFile(path.join(process.cwd(), "data", name), "utf8");
     return JSON.parse(raw) as Record<string, string>;
   } catch {
     return {};
   }
 }
+const readDandexLogos = () => readLogoFile("dandex-logos.json");
+const readApprovedLogos = () => readLogoFile("approved-logos.json");
 
 // พอร์ตจริงของที่อยู่บน Danny Chain (5069):
 // ยอดถือครองจริง (Blockscout) × ราคาจริง (dancharts) = มูลค่า USD
@@ -62,7 +64,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const [balRes, nativeRes, prices, logoMap, approvedLogos] = await Promise.all([
+    const [balRes, nativeRes, prices, logoMap, dandexLogos, approvedLogos] = await Promise.all([
       fetch(BALANCES(address), { headers: { Accept: "application/json" }, next: { revalidate } }),
       fetch(RPC, {
         method: "POST",
@@ -72,9 +74,11 @@ export async function GET(req: Request) {
       }),
       fetchDannyPrices(revalidate),
       fetchDannyLogos(),
+      readDandexLogos(),
       readApprovedLogos(),
     ]);
-    // โลโก้ที่แอดมินอนุมัติ override โลโก้อัตโนมัติ (ให้ตรงกับ tokens route)
+    // ลำดับความสำคัญ: static/dancharts < dandex-sync (cron) < approved (แอดมิน) — ให้ตรงกับ tokens route
+    for (const [addr, url] of Object.entries(dandexLogos)) logoMap.set(addr.toLowerCase(), url);
     for (const [addr, url] of Object.entries(approvedLogos)) logoMap.set(addr.toLowerCase(), url);
 
     const holdings: Holding[] = [];

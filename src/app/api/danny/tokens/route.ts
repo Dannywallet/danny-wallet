@@ -4,15 +4,18 @@ import path from "path";
 import { fetchDandexPrices } from "@/lib/wallet/dandex-prices";
 import { fetchDannyLogos } from "@/lib/wallet/danny-prices";
 
-// โลโก้ที่แอดมินอนุมัติผ่านหน้า /wallet/admin/listings (override โลโก้อัตโนมัติ)
-async function readApprovedLogos(): Promise<Record<string, string>> {
+// อ่านไฟล์ logo override ใน data/ (runtime volume)
+async function readLogoFile(name: string): Promise<Record<string, string>> {
   try {
-    const raw = await fs.readFile(path.join(process.cwd(), "data", "approved-logos.json"), "utf8");
+    const raw = await fs.readFile(path.join(process.cwd(), "data", name), "utf8");
     return JSON.parse(raw) as Record<string, string>;
   } catch {
     return {};
   }
 }
+// dandex-logos.json = sync อัตโนมัติจาก dandex.io (cron) · approved-logos.json = override โดยแอดมิน (ทับสุด)
+const readDandexLogos = () => readLogoFile("dandex-logos.json");
+const readApprovedLogos = () => readLogoFile("approved-logos.json");
 
 // Proxy ฝั่งเซิร์ฟเวอร์ — ดึงรายชื่อ token จริงบน Danny Chain (5069) ผ่าน Blockscout API
 // + ราคาจริงจาก dancharts (DEX analytics) merge ตาม contract address
@@ -97,13 +100,15 @@ function toUnits(supply: string | null, decimals: number): number {
 
 export async function GET() {
   try {
-    const [res, priceMap, logoMap, approvedLogos] = await Promise.all([
+    const [res, priceMap, logoMap, dandexLogos, approvedLogos] = await Promise.all([
       fetch(BLOCKSCOUT, { headers: { Accept: "application/json" }, next: { revalidate } }),
       fetchPrices(),
       fetchDannyLogos(),
+      readDandexLogos(),
       readApprovedLogos(),
     ]);
-    // โลโก้ที่แอดมินอนุมัติ override โลโก้อัตโนมัติ
+    // ลำดับความสำคัญ: static/dancharts < dandex-sync (cron) < approved (แอดมิน)
+    for (const [addr, url] of Object.entries(dandexLogos)) logoMap.set(addr.toLowerCase(), url);
     for (const [addr, url] of Object.entries(approvedLogos)) logoMap.set(addr.toLowerCase(), url);
     if (!res.ok) {
       return NextResponse.json(
