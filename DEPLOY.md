@@ -6,21 +6,21 @@ Full deploy in a single command with Docker Compose — includes the **app (Next
 ## ⚡ Fresh install on a VPS (one script) — recommended
 Bare VPS (Ubuntu) → use [`setup-vps.sh`](setup-vps.sh) to do everything: open the firewall + (add swap if RAM is low) + install Docker + create .env + build + run.
 
-**Real setup: domain `dannywallet.com` → VPS IP `31.97.51.253`**
+**Setup: point your domain's apex A record → your VPS IP (`YOUR_VPS_IP`)**
 ```bash
 # 1) At your domain registrar — point the apex A record to the VPS:
-#      @  (dannywallet.com)   A   31.97.51.253
-#    Wait for DNS to propagate (check: ping dannywallet.com should return 31.97.51.253)
+#      @  (dannywallet.com)   A   YOUR_VPS_IP
+#    Wait for DNS to propagate (check: ping dannywallet.com should return YOUR_VPS_IP)
 #    * Want www.dannywallet.com too? Ask and we'll add a redirect → apex in the Caddyfile
 
 # 2) Get the code onto the VPS (pick one)
 #    A. From your machine:
-scp -r "danny-wallet" root@31.97.51.253:/opt/danny-wallet
+scp -r "danny-wallet" root@YOUR_VPS_IP:/opt/danny-wallet
 #    B. Or git (after pushing to GitHub):
-ssh root@31.97.51.253 'git clone <repo> /opt/danny-wallet'
+ssh root@YOUR_VPS_IP 'git clone <repo> /opt/danny-wallet'
 
 # 3) SSH into the VPS and run the script (first pass: install Docker + create .env)
-ssh root@31.97.51.253
+ssh root@YOUR_VPS_IP
 cd /opt/danny-wallet && bash setup-vps.sh
 
 # 4) Edit .env
@@ -33,11 +33,11 @@ bash setup-vps.sh
 ```
 → Open **https://dannywallet.com** right away (auto-redirects to `/wallet` · Caddy issues the cert itself) ✅
 
-> 📌 You must **point the A record `dannywallet.com` → `31.97.51.253` first**, then run the second pass — Caddy has to verify the domain before it can issue HTTPS.
+> 📌 You must **point the A record `dannywallet.com` → `YOUR_VPS_IP` first**, then run the second pass — Caddy has to verify the domain before it can issue HTTPS.
 
 ---
 ## 0) Prerequisites (one time)
-- VPS: **Hostinger KVM 1 (4GB)** or higher · **Ubuntu 22.04 LTS** (24.04 also works — same result)
+- VPS: **any KVM VPS (4GB RAM+)** · **Ubuntu 22.04 LTS** (24.04 also works — same result)
 - Domain: point the **A record** of `wallet.yourdomain.com` to the **VPS IP**
 
 ## 1) Install Docker on the VPS (Ubuntu 22.04)

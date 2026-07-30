@@ -35,7 +35,7 @@ Docker + Caddy (automatic HTTPS) — a single command:
 ```bash
 docker compose up -d --build
 ```
-Full details (Hostinger VPS / Ubuntu 22.04 / env / CI) in **[DEPLOY.md](DEPLOY.md)**
+Full details (VPS / Ubuntu 22.04 / env / CI) in **[DEPLOY.md](DEPLOY.md)**
 
 ## ⚙️ Environment variables (`.env`)
 | Variable | Purpose |
