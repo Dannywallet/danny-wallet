@@ -340,7 +340,7 @@ export default function AssetDetail() {
           <Link href="/wallet/receive" className="dw-btn-primary flex flex-col items-center gap-1 rounded-2xl py-3 text-xs text-white">
             <ArrowDown size={20} /> {tr("common.receive")}
           </Link>
-          <Link href="/wallet/swap" className="dw-btn-primary flex flex-col items-center gap-1 rounded-2xl py-3 text-xs text-white">
+          <Link href={`/wallet/swap?from=${holding.address ?? "native"}`} className="dw-btn-primary flex flex-col items-center gap-1 rounded-2xl py-3 text-xs text-white">
             <Swap size={20} /> {tr("common.swap")}
           </Link>
         </div>

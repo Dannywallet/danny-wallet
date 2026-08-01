@@ -49,12 +49,20 @@ export default function SwapPage() {
     setGasFee(fee);
   };
 
-  // ตั้งค่าเริ่มต้นเมื่อโหลด token เสร็จ (จ่าย = ตัวที่มีมูลค่ามากสุด, รับ = DAN/ตัวถัดไป)
+  // ตั้งค่าเริ่มต้นเมื่อโหลด token เสร็จ — ถ้ามี ?from=<address|native> (มาจากหน้ารายละเอียดเหรียญ)
+  // ให้เลือกเหรียญนั้นเป็นฝั่ง "จ่าย" · ไม่งั้น จ่าย = ตัวมูลค่ามากสุด, รับ = ตัวถัดไป
   React.useEffect(() => {
     if (state !== "ok" || tokens.length < 2 || from) return;
+    const want = new URLSearchParams(window.location.search).get("from");
     const priced = tokens.filter((t) => t.priceUsd != null);
-    const base = priced[0] || tokens[0];
-    const quote = tokens.find((t) => t.symbol !== base.symbol && t.priceUsd != null) || tokens[1];
+    const base =
+      (want && tokens.find((t) => (t.address ?? "native").toLowerCase() === want.toLowerCase())) ||
+      priced[0] ||
+      tokens[0];
+    const quote =
+      tokens.find((t) => t.symbol !== base.symbol && t.priceUsd != null) ||
+      tokens.find((t) => t.symbol !== base.symbol) ||
+      tokens[1];
     setFrom(base);
     setTo(quote);
   }, [state, tokens, from]);

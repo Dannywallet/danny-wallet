@@ -92,6 +92,8 @@ export default function DesktopWallet() {
   const w = useWallet();
   const { hydrated, created, locked, address, accounts, activeIndex, balanceHidden, toggleBalance, lock } = w;
   const [view, setView] = React.useState<View>("portfolio");
+  // เหรียญที่จะตั้งเป็นฝั่ง "จ่าย" ในหน้า swap (มาจากปุ่ม Swap ในหน้ารายละเอียดเหรียญ)
+  const [swapFrom, setSwapFrom] = React.useState<string | null>(null);
   const { light, toggle: toggleTheme } = useTheme();
   const [buyOpen, setBuyOpen] = React.useState(false);
   const { unread, toast, dismissToast, markSeen } = useTxAlerts(address);
@@ -207,8 +209,8 @@ export default function DesktopWallet() {
 
         {/* ===== Main ===== */}
         <main className="flex-1 px-8 py-8">
-          {view === "portfolio" && <PortfolioView address={address} balanceHidden={balanceHidden} toggleBalance={toggleBalance} onGoto={setView} />}
-          {view === "swap" && <SwapView />}
+          {view === "portfolio" && <PortfolioView address={address} balanceHidden={balanceHidden} toggleBalance={toggleBalance} onGoto={(v, preset) => { setSwapFrom(preset ?? null); setView(v); }} />}
+          {view === "swap" && <SwapView presetFrom={swapFrom} />}
           {view === "send" && <SendView />}
           {view === "receive" && <ReceiveView address={address} name={accounts[activeIndex]?.name} />}
           {view === "activity" && <ActivityView address={address} />}
@@ -478,7 +480,7 @@ function PortfolioChartCard({ holdings, totalUsd, change24h, hidden }: {
 type Portfolio = { totalUsd: number; change24h: number; count: number; hiddenCount?: number; holdings: Holding[]; error?: string };
 
 function PortfolioView({ address, balanceHidden, toggleBalance, onGoto }: {
-  address: string | null; balanceHidden: boolean; toggleBalance: () => void; onGoto: (v: View) => void;
+  address: string | null; balanceHidden: boolean; toggleBalance: () => void; onGoto: (v: View, presetFrom?: string) => void;
 }) {
   const { t: tr } = useI18n();
   const [pf, setPf] = React.useState<Portfolio | null>(null);
@@ -499,7 +501,7 @@ function PortfolioView({ address, balanceHidden, toggleBalance, onGoto }: {
   const hidden = (pf?.holdings || []).filter((h) => h.spam);
   const up = (pf?.change24h ?? 0) >= 0;
 
-  if (detail) return <CoinDetailView holding={detail} address={address} onBack={() => setDetail(null)} />;
+  if (detail) return <CoinDetailView holding={detail} address={address} onBack={() => setDetail(null)} onGoto={onGoto} />;
 
   return (
     <div className="dw-rise space-y-6">
@@ -622,7 +624,11 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /* ---------- coin detail modal: กราฟ + รายละเอียดการเทรด (คลิกเหรียญในตาราง) ---------- */
-function CoinDetailView({ holding, address, onBack }: { holding: Holding; address: string | null; onBack: () => void }) {
+function CoinDetailView({ holding, address, onBack, onGoto }: {
+  holding: Holding; address: string | null; onBack: () => void;
+  /** ไปหน้าอื่น — ส่ง preset (address ของเหรียญนี้) ให้หน้า swap เลือกเป็นฝั่งจ่าย */
+  onGoto?: (v: View, presetFrom?: string) => void;
+}) {
   const { t: tr } = useI18n();
   const [market, setMarket] = React.useState<DannyToken | null>(null);
   const [chart, setChart] = React.useState<ChartPoint[] | null>(null);
@@ -733,6 +739,21 @@ function CoinDetailView({ holding, address, onBack }: { holding: Holding; addres
         <Stat label={tr("asset.totalSupply")} value={market?.totalSupply ? compact(market.totalSupply) : "—"} />
       </div>
 
+      {/* ปุ่มลัด — swap พาไปที่คู่ของเหรียญนี้เลย */}
+      {onGoto && (
+        <div className="flex gap-2.5">
+          {([["send", tr("common.send"), ArrowUp], ["receive", tr("common.receive"), ArrowDown], ["swap", tr("common.swap"), SwapIcon]] as const).map(([v, label, Icon]) => (
+            <button
+              key={v}
+              onClick={() => onGoto(v, v === "swap" ? holding.address ?? "native" : undefined)}
+              className="dw-btn-primary flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-3 text-xs font-medium"
+            >
+              <Icon size={18} /> {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* transaction history */}
       <div className="dw-glass rounded-3xl p-2 sm:p-4">
         <h2 className="px-3 py-2 font-semibold">{tr("activity.title")}</h2>
@@ -771,7 +792,7 @@ function CoinDetailView({ holding, address, onBack }: { holding: Holding; addres
 }
 
 /* ---------- Swap ---------- */
-function SwapView() {
+function SwapView({ presetFrom }: { presetFrom?: string | null }) {
   const { t: tr } = useI18n();
   const { tokens, state } = useSwapTokens();
   const { address, getActivePrivateKey } = useWallet();
@@ -787,13 +808,18 @@ function SwapView() {
   const [askPin, setAskPin] = React.useState(false);
   const [gasFee, setGasFee] = React.useState<number | null | "loading">(null);
 
+  // presetFrom = address (หรือ "native") ที่ส่งมาจากหน้ารายละเอียดเหรียญ → ตั้งเป็นฝั่ง "จ่าย"
   React.useEffect(() => {
     if (state !== "ok" || tokens.length < 2 || from) return;
     const priced = tokens.filter((t) => t.priceUsd != null);
-    const base = priced[0] || tokens[0];
-    const quote = tokens.find((t) => t.symbol !== base.symbol && t.priceUsd != null) || tokens[1];
+    const base =
+      (presetFrom && tokens.find((t) => (t.address ?? "native").toLowerCase() === presetFrom.toLowerCase())) ||
+      priced[0] || tokens[0];
+    const quote =
+      tokens.find((t) => t.symbol !== base.symbol && t.priceUsd != null) ||
+      tokens.find((t) => t.symbol !== base.symbol) || tokens[1];
     setFrom(base); setTo(quote);
-  }, [state, tokens, from]);
+  }, [state, tokens, from, presetFrom]);
 
   const amt = parseFloat(amount) || 0;
   // ราคาจาก router on-chain จริง (getAmountsOut) — รองรับ token ที่ priceUsd เป็น null/เพี้ยน
