@@ -1,20 +1,13 @@
 // Danny Chain Wallet — ตัวช่วย format (DEMO)
 
+import { formatMoney } from "./currency";
+
+/**
+ * แสดงมูลค่า — ราคาต้นทางเป็น USD เสมอ แล้วแปลงเป็นสกุลที่ผู้ใช้เลือก (ดู lib/wallet/currency.ts)
+ * ชื่อฟังก์ชันคงไว้เพื่อไม่ต้องแก้จุดเรียกทั้งหมด
+ */
 export function formatUsd(value: number, opts?: { compact?: boolean }): string {
-  if (opts?.compact && Math.abs(value) >= 1000) {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      notation: "compact",
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatMoney(value, opts);
 }
 
 export function formatToken(value: number, symbol?: string): string {

@@ -15,6 +15,7 @@ import { WDAN } from "@/lib/wallet/danny-prices";
 import { TokenIcon } from "@/components/wallet/TokenIcon";
 import { DannyLogo } from "@/components/wallet/DannyLogo";
 import { LanguageToggle } from "@/components/wallet/LanguageToggle";
+import { CurrencySelect } from "@/components/wallet/CurrencySelect";
 import { useI18n } from "@/lib/wallet/i18n";
 import { QrCode } from "@/components/wallet/QrCode";
 import { QrScanner } from "@/components/wallet/QrScanner";
@@ -1441,6 +1442,13 @@ function SettingsView({ light, toggleTheme, onReset }: { light: boolean; toggleT
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium">ภาษา / Language</p>
           <LanguageToggle />
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">{tr("settings.currency")}</p>
+            <p className="text-xs text-[var(--dw-muted)]">{tr("settings.currencyDesc")}</p>
+          </div>
+          <CurrencySelect />
         </div>
         <Toggle label={tr("dset.lightTheme")} desc={tr("dset.lightThemeDesc")} on={light} onClick={toggleTheme} />
         <Toggle label={tr("settings.hideBalance")} desc={tr("settings.hideBalanceDesc")} on={balanceHidden} onClick={toggleBalance} />

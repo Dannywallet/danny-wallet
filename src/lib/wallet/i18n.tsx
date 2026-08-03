@@ -3,6 +3,7 @@
 // ระบบแปลภาษาแบบเบา (ไม่มี dependency) — ไทย/อังกฤษ
 // ใช้: const { t, lang, setLang } = useI18n();  →  t("welcome.createWallet")
 import React from "react";
+import { CURRENCIES, CURRENCY_KEY, DEFAULT_CURRENCY, setActiveCurrency, type CurrencyCode } from "./currency";
 
 export type Lang = "th" | "en" | "vi" | "zh";
 
@@ -131,6 +132,8 @@ const STRINGS: Record<Lang, Dict> = {
     "settings.generalSection": "ทั่วไป",
     "settings.theme": "โหมดสว่าง",
     "settings.themeDesc": "สลับโหมดมืด / สว่าง",
+    "settings.currency": "สกุลเงิน",
+    "settings.currencyDesc": "สกุลเงินที่ใช้แสดงมูลค่า",
     "settings.adminListings": "จัดการคำขอลงลิสต์ (แอดมิน)",
     "settings.adminListingsDesc": "อนุมัติโทเคน + ใส่โลโก้ (ต้องมีกุญแจ)",
     "settings.about": "เกี่ยวกับ Danny Wallet",
@@ -687,6 +690,8 @@ const STRINGS: Record<Lang, Dict> = {
     "settings.generalSection": "General",
     "settings.theme": "Light mode",
     "settings.themeDesc": "Toggle dark / light",
+    "settings.currency": "Currency",
+    "settings.currencyDesc": "Currency used to show values",
     "settings.adminListings": "Manage listing requests (admin)",
     "settings.adminListingsDesc": "Approve tokens + add logo (key required)",
     "settings.about": "About Danny Wallet",
@@ -1227,6 +1232,8 @@ const STRINGS: Record<Lang, Dict> = {
     "settings.generalSection": "Chung",
     "settings.theme": "Chế độ sáng",
     "settings.themeDesc": "Chuyển tối / sáng",
+    "settings.currency": "Tiền tệ",
+    "settings.currencyDesc": "Tiền tệ dùng để hiển thị giá trị",
     "settings.adminListings": "Quản lý yêu cầu niêm yết (admin)",
     "settings.adminListingsDesc": "Duyệt token + thêm logo (cần khóa)",
     "settings.about": "Về Danny Wallet",
@@ -1767,6 +1774,8 @@ const STRINGS: Record<Lang, Dict> = {
     "settings.generalSection": "通用",
     "settings.theme": "浅色模式",
     "settings.themeDesc": "切换深色 / 浅色",
+    "settings.currency": "货币",
+    "settings.currencyDesc": "用于显示价值的货币",
     "settings.adminListings": "管理上币申请（管理员）",
     "settings.adminListingsDesc": "审核代币 + 添加 logo（需密钥）",
     "settings.about": "关于 Danny Wallet",
@@ -2197,27 +2206,72 @@ const STRINGS: Record<Lang, Dict> = {
   },
 };
 
-type I18nValue = { lang: Lang; setLang: (l: Lang) => void; t: (key: string) => string };
+type I18nValue = {
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: (key: string) => string;
+  /** สกุลเงินที่ใช้แสดงมูลค่า (ราคาต้นทางเป็น USD แล้วแปลงด้วย fxRate) */
+  currency: CurrencyCode;
+  setCurrency: (c: CurrencyCode) => void;
+  fxRate: number;
+};
 
-const I18nCtx = React.createContext<I18nValue>({ lang: "en", setLang: () => {}, t: (k) => k });
+const I18nCtx = React.createContext<I18nValue>({
+  lang: "en",
+  setLang: () => {},
+  t: (k) => k,
+  currency: DEFAULT_CURRENCY,
+  setCurrency: () => {},
+  fxRate: 1,
+});
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   // ดีฟอลต์ "en" ให้ตรงกันทั้ง SSR และ client-initial (กัน hydration mismatch) แล้วค่อยโหลดค่าที่บันทึกไว้
   const [lang, setLangState] = React.useState<Lang>("en");
+  // สกุลเงินที่ใช้แสดงมูลค่า + อัตราแลกเปลี่ยนจาก USD
+  const [currency, setCurrencyState] = React.useState<CurrencyCode>(DEFAULT_CURRENCY);
+  const [rates, setRates] = React.useState<Record<string, number>>({ USD: 1 });
+
   React.useEffect(() => {
     try {
       const s = localStorage.getItem("dw-lang");
       if (s === "en" || s === "th" || s === "vi" || s === "zh") setLangState(s);
+      const c = localStorage.getItem(CURRENCY_KEY);
+      if (c && CURRENCIES.some((x) => x.code === c)) setCurrencyState(c as CurrencyCode);
     } catch {
       /* noop */
     }
   }, []);
+
+  // โหลดอัตราแลกเปลี่ยน (cache ฝั่งเซิร์ฟเวอร์ 1 ชม.)
+  React.useEffect(() => {
+    let alive = true;
+    fetch("/api/danny/fx")
+      .then((r) => r.json())
+      .then((j: { rates?: Record<string, number> }) => { if (alive && j.rates) setRates(j.rates); })
+      .catch(() => { /* fallback = USD */ });
+    return () => { alive = false; };
+  }, []);
+
+  // sync ค่าปัจจุบันไปยัง module state ที่ formatUsd() ใช้ (ต้องตั้งก่อน render รอบนี้)
+  const rate = rates[currency] ?? 1;
+  setActiveCurrency(currency, rate);
+
   const setLang = React.useCallback((l: Lang) => {
     setLangState(l);
     try { localStorage.setItem("dw-lang", l); } catch { /* noop */ }
   }, []);
+  const setCurrency = React.useCallback((c: CurrencyCode) => {
+    setCurrencyState(c);
+    try { localStorage.setItem(CURRENCY_KEY, c); } catch { /* noop */ }
+  }, []);
   const t = React.useCallback((key: string) => STRINGS[lang][key] ?? STRINGS.th[key] ?? key, [lang]);
-  return <I18nCtx.Provider value={{ lang, setLang, t }}>{children}</I18nCtx.Provider>;
+
+  return (
+    <I18nCtx.Provider value={{ lang, setLang, t, currency, setCurrency, fxRate: rate }}>
+      {children}
+    </I18nCtx.Provider>
+  );
 }
 
 export function useI18n() {

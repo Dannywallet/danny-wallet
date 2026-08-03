@@ -18,8 +18,9 @@ import { AccountSwitcher } from "@/components/wallet/AccountSwitcher";
 import { shortAddress } from "@/lib/wallet/format";
 import { clearStuckTransactions, getStuckCount } from "@/lib/wallet/dandex-swap";
 import {
-  Shield, Lock, Fingerprint, Eye, Globe, Book, Logout, ChevronRight, Bell, Copy, Check, ArrowUp, ArrowDown, Warn, Activity,
+  Shield, Lock, Fingerprint, Eye, Globe, Book, Logout, ChevronRight, Bell, Copy, Check, ArrowUp, ArrowDown, Warn, Activity, Card,
 } from "@/components/wallet/Icons";
+import { CurrencySelect } from "@/components/wallet/CurrencySelect";
 
 type Contact = { address: string; short: string; direction: "sent" | "received" };
 
@@ -244,6 +245,7 @@ export default function SettingsPage() {
 
         <Section title={t("settings.generalSection")}>
           <Item Icon={Globe} title="ภาษา / Language" desc="ไทย / English" right={<LanguageToggle />} />
+          <Item Icon={Card} title={t("settings.currency")} desc={t("settings.currencyDesc")} right={<CurrencySelect />} />
           <Item Icon={SunIcon} title={t("settings.theme")} desc={t("settings.themeDesc")}
             right={<Toggle on={light} onChange={toggleTheme} />} />
           <Item Icon={Book} title={t("settings.about")} desc={`${t("settings.version")} 1.0.0`}
