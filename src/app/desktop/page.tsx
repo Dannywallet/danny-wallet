@@ -1456,8 +1456,9 @@ function SettingsView({ light, toggleTheme, onReset }: { light: boolean; toggleT
           <div><p className="text-sm font-medium">{tr("settings.autoLock")}</p><p className="text-xs text-[var(--dw-muted)]">{tr("dset.autoLockIdleDesc")}</p></div>
           <select value={autoLockMin} onChange={(e) => setPref({ autoLockMin: Number(e.target.value) })}
             className="dw-glass rounded-xl px-3 py-2 text-sm outline-none" style={{ color: "var(--dw-text)" }}>
-            {[1, 3, 5, 15, 30].map((m) => <option key={m} value={m} className="text-black">{m} {tr("settings.minutes")}</option>)}
-            <option value={0} className="text-black">{tr("settings.lockOff")}</option>
+            {/* ไม่บังคับสีบน option — ใช้สีตาม color-scheme ของธีม (ดู wallet.css) */}
+            {[1, 3, 5, 15, 30].map((m) => <option key={m} value={m}>{m} {tr("settings.minutes")}</option>)}
+            <option value={0}>{tr("settings.lockOff")}</option>
           </select>
         </div>
       </SettingsCard>

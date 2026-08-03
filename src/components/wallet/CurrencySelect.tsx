@@ -15,8 +15,10 @@ export function CurrencySelect({ className = "" }: { className?: string }) {
       className={`dw-btn-ghost rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none ${className}`}
       style={{ color: "var(--dw-text)", background: "var(--dw-panel)" }}
     >
+      {/* ไม่กำหนดสีบน <option> — ปล่อยให้เบราว์เซอร์ใช้สีตาม color-scheme ของธีม
+          (Chrome/Windows ใช้ color ของ option แต่ไม่ใช้ background → ถ้าบังคับสีอ่อนจะอ่านไม่ออกบนพื้นขาว) */}
       {CURRENCIES.map((c) => (
-        <option key={c.code} value={c.code} style={{ background: "var(--dw-panel)", color: "var(--dw-text)" }}>
+        <option key={c.code} value={c.code}>
           {c.label}
         </option>
       ))}

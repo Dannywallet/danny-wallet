@@ -1,5 +1,10 @@
 /* Danny Chain Wallet — ธีม Dark Futuristic / Neon (เฉพาะ /wallet) */
 
+/* บอกเบราว์เซอร์ว่าหน้านี้เป็นธีมมืด → dropdown ของ <select> (ที่ OS วาดเอง)
+   จะใช้พื้นเข้ม/ตัวอักษรสว่างตาม ไม่งั้นจะได้ตัวอักษรสีอ่อนบนพื้นขาว อ่านไม่ออก */
+:root { color-scheme: dark; }
+html.theme-light { color-scheme: light; }
+
 .dw-root {
   --dw-bg: #070b14;
   --dw-bg2: #0b1120;
