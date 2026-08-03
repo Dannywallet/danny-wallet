@@ -5,6 +5,17 @@
 :root { color-scheme: dark; }
 html.theme-light { color-scheme: light; }
 
+/* รายการใน dropdown ถูกวาดโดย OS นอก DOM ปกติ — สีที่สืบทอดมาหรือ CSS variable
+   มักไม่ถูกใช้ ทำให้ตัวอักษรจางจนอ่านไม่ออก จึงกำหนดสีทึบตรง ๆ ให้ทั้งสองธีม */
+select option {
+  color: #e8edf7;
+  background-color: #0e1424;
+}
+html.theme-light select option {
+  color: #0b1120;
+  background-color: #ffffff;
+}
+
 .dw-root {
   --dw-bg: #070b14;
   --dw-bg2: #0b1120;
