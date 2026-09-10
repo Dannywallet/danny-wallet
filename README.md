@@ -8,7 +8,7 @@ Runs as both a **web app** and a **desktop app (Electron)**.
 
 ## ✨ Features
 - **Wallet** — create/import via **recovery phrase (BIP39)** or **private key** · multi-account (HD + imported)
-- **Security** — seed/key encrypted with **AES-256-GCM + PBKDF2 (210k)** · PIN · auto-lock · wipes the wallet after 10 wrong PIN attempts · auto-clears the clipboard after copying a key
+- **Security** — seed/key encrypted with **AES-256-GCM + scrypt (N=2^16, 64 MB)** · PIN of 12+ digits or passphrase of 8+ characters · auto-lock · wipes the wallet after 10 wrong attempts · auto-clears the clipboard after copying a key
 - **Real data** — tokens + prices (dandex on-chain) · **OHLC candlestick** chart (scrollable + MA + 1h / 24h / 7d ranges) · portfolio · transactions — from dannyscan / dancharts
 - **Transactions** — Send + Swap (dandex router) signed with the in-app key (PIN required) + gas estimation
 - **WalletConnect** — connect dApps + auto-handle deep links `?uri=` (registry-ready)
@@ -57,8 +57,10 @@ Dockerfile · docker-compose.yml · Caddyfile    deploy
 ```
 
 ## 🔒 Security
-- All keys live on the user's device (localStorage), encrypted with the PIN — never sent off-device
-- Signing decrypts the key with the PIN only at the moment of use
+- All keys live on the user's device (localStorage), encrypted with the user's PIN or passphrase — never sent off-device
+- Key derivation uses scrypt (N=2^16, r=8, p=1), so every guess costs ~64 MB of memory. Vaults created with the older PBKDF2 scheme are re-encrypted on the next unlock, and a legacy 6-digit PIN must be replaced before the wallet can be used
+- The wrong-attempt limit is stored alongside the vault, so it only slows casual guessing on the device — protection against offline brute force comes from the slow KDF plus the minimum secret length
+- Signing decrypts the key only at the moment of use
 - **Must run over HTTPS or localhost** (WebCrypto only works in a secure context)
 
 ## 📜 Scripts
