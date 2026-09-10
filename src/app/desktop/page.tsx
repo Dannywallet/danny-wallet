@@ -1,5 +1,6 @@
 "use client";
 
+import { validateSecret } from "@/lib/wallet/crypto";
 import React from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -268,7 +269,7 @@ function AccountSwitcherSidebar() {
   const copy = async () => { if (!address) return; try { await navigator.clipboard.writeText(address); setCopied(true); setTimeout(() => setCopied(false), 1200); } catch {} };
   const startAction = (a: "add" | "create" | "import") => { setAction(a); setErr(null); setPin(""); setPk(""); };
   const reasonMsg = (r?: string) => r === "max" ? tr("tx.maxReached") : r === "invalid-key" ? tr("import.pkInvalid") : r === "exists" ? tr("acct.exists") : r === "pin" ? tr("tx.pinWrong") : tr("tx.addAccountFailed");
-  const canRun = pin.length === 6 && (action !== "import" || pk.trim().length >= 60);
+  const canRun = pin.length > 0 && (action !== "import" || pk.trim().length >= 60);
   const runAction = async () => {
     if (!action) return;
     setBusy(true); setErr(null);
@@ -355,8 +356,8 @@ function AccountSwitcherSidebar() {
                     placeholder={tr("acct.pkPlaceholder")}
                     className="dw-glass mb-1.5 w-full resize-none rounded-xl px-3 py-2 font-mono text-xs outline-none placeholder:text-[var(--dw-muted)] focus:border-[var(--dw-cyan)]/50" style={{ color: "var(--dw-text)" }} />
                 )}
-                <input type="password" inputMode="numeric" maxLength={6} value={pin} autoFocus={action !== "import"}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                <input type="password"   value={pin} autoFocus={action !== "import"}
+                  onChange={(e) => setPin(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && canRun && !busy && runAction()}
                   placeholder={tr("acct.pinToAdd")}
                   className="dw-glass w-full rounded-xl px-3 py-2 text-center text-sm tracking-[0.3em] outline-none focus:border-[var(--dw-cyan)]/50" style={{ color: "var(--dw-text)" }} />
@@ -1305,13 +1306,13 @@ function PinModal({ open, onClose, title, subtitle, fee, pin, setPin, onSubmit, 
             <Warn size={14} className="mt-0.5 shrink-0 text-[var(--dw-amber)]" /> {note}
           </div>
         )}
-        <input type="password" inputMode="numeric" maxLength={6} value={pin} autoFocus
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-          onKeyDown={(e) => e.key === "Enter" && pin.length === 6 && !busy && onSubmit()}
+        <input type="password"   value={pin} autoFocus
+          onChange={(e) => setPin(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && pin.length > 0 && !busy && onSubmit()}
           placeholder={tr("tx.enterPin")}
           className="dw-glass mt-4 w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50" style={{ color: "var(--dw-text)" }} />
         {err && <p className="mt-2 flex items-center justify-center gap-1 text-xs text-[var(--dw-rose)]"><Warn size={13} /> {err}</p>}
-        <button onClick={onSubmit} disabled={pin.length < 6 || busy} className="dw-btn-primary mt-4 w-full rounded-2xl py-3.5 font-semibold disabled:opacity-50">
+        <button onClick={onSubmit} disabled={!pin || busy} className="dw-btn-primary mt-4 w-full rounded-2xl py-3.5 font-semibold disabled:opacity-50">
           {busy ? busyText || tr("tx.processing") : tr("common.confirm")}
         </button>
       </div>
@@ -1360,10 +1361,10 @@ function SecretReveal({ label, hint, onReveal }: { label: string; hint: string; 
       <p className="text-sm font-medium">{label}</p>
       <p className="text-xs text-[var(--dw-muted)]">{hint}</p>
       <div className="mt-2 flex gap-2">
-        <input type="password" inputMode="numeric" maxLength={6} value={pin}
-          onChange={(e) => { setPin(e.target.value.replace(/\D/g, "")); setErr(false); }}
+        <input type="password"   value={pin}
+          onChange={(e) => { setPin(e.target.value); setErr(false); }}
           placeholder={tr("tx.enterPin")} className="dw-glass w-32 rounded-xl px-3 py-2 text-center text-sm tracking-[0.3em] outline-none" style={{ color: "var(--dw-text)" }} />
-        <button onClick={go} disabled={pin.length < 6 || busy} className="dw-btn-primary rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50">{busy ? "…" : tr("common.show")}</button>
+        <button onClick={go} disabled={!pin || busy} className="dw-btn-primary rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50">{busy ? "…" : tr("common.show")}</button>
         {err && <span className="self-center text-xs text-[var(--dw-rose)]">{tr("tx.pinWrong")}</span>}
       </div>
     </div>
@@ -1404,7 +1405,7 @@ function SettingsView({ light, toggleTheme, onReset }: { light: boolean; toggleT
   };
 
   const doChangePin = async () => {
-    if (np.length < 6 || np !== cp) { setPinMsg({ ok: false, text: tr("dset.pinMismatch") }); return; }
+    if (!validateSecret(np).ok || np !== cp) { setPinMsg({ ok: false, text: tr("dset.pinMismatch") }); return; }
     setBusy(true);
     const ok = await changePin(op, np); setBusy(false);
     setPinMsg(ok ? { ok: true, text: tr("dset.pinChanged") } : { ok: false, text: tr("dset.pinOldWrong") });
@@ -1468,8 +1469,8 @@ function SettingsView({ light, toggleTheme, onReset }: { light: boolean; toggleT
           <p className="text-sm font-medium">{tr("dset.changePin")}</p>
           <div className="mt-2 grid grid-cols-3 gap-2">
             {[[tr("dset.pinOld"), op, setOp], [tr("dset.pinNew"), np, setNp], [tr("dset.pinConfirmNew"), cp, setCp]].map(([ph, val, set]: any) => (
-              <input key={ph} type="password" inputMode="numeric" maxLength={6} value={val} placeholder={ph}
-                onChange={(e) => { set(e.target.value.replace(/\D/g, "")); setPinMsg(null); }}
+              <input key={ph} type="password"   value={val} placeholder={ph}
+                onChange={(e) => { set(e.target.value); setPinMsg(null); }}
                 className="dw-glass rounded-xl px-3 py-2 text-center text-sm outline-none" style={{ color: "var(--dw-text)" }} />
             ))}
           </div>
@@ -1521,11 +1522,11 @@ function SettingsView({ light, toggleTheme, onReset }: { light: boolean; toggleT
           <>
             <p className="flex items-start gap-1.5 text-xs text-[var(--dw-amber)]"><Warn size={14} className="mt-0.5 shrink-0" /> {tr("settings.resetNonceWarn")}</p>
             <div className="flex items-center gap-2">
-              <input type="password" inputMode="numeric" maxLength={6} value={noncePin}
-                onChange={(e) => { setNoncePin(e.target.value.replace(/\D/g, "")); setNonceMsg(null); }}
-                onKeyDown={(e) => e.key === "Enter" && noncePin.length === 6 && !nonceBusy && doResetNonce()}
+              <input type="password"   value={noncePin}
+                onChange={(e) => { setNoncePin(e.target.value); setNonceMsg(null); }}
+                onKeyDown={(e) => e.key === "Enter" && noncePin.length > 0 && !nonceBusy && doResetNonce()}
                 placeholder={tr("tx.enterPin")} className="dw-glass w-32 rounded-xl px-3 py-2 text-center text-sm outline-none" style={{ color: "var(--dw-text)" }} />
-              <button onClick={doResetNonce} disabled={noncePin.length < 6 || nonceBusy || stuckCount === null}
+              <button onClick={doResetNonce} disabled={!noncePin || nonceBusy || stuckCount === null}
                 className="dw-btn-primary rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50">
                 {nonceBusy ? tr("settings.clearing") : tr("settings.resetNonceBtn")}
               </button>

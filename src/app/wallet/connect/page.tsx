@@ -24,6 +24,25 @@ export default function ConnectPage() {
   const [pin, setPin] = React.useState("");
   const [pinErr, setPinErr] = React.useState(false);
 
+  // ที่อยู่ของบัญชีที่เป็นเจ้าของกุญแจใน keyRef — ใช้ตรวจว่ากุญแจยังตรงกับบัญชีปัจจุบันไหม
+  const keyOwnerRef = React.useRef<string | null>(null);
+
+  /**
+   * ⚠️ ล้างกุญแจที่แคชไว้ทันทีที่ผู้ใช้สลับบัญชี
+   *
+   * เดิม keyRef ถูกตั้งครั้งเดียวตอนปลดล็อกและไม่เคยถูกล้าง ขณะที่ address เป็นค่า reactive
+   * ทำให้เกิดสภาพ "อนุมัติ session เป็น B แต่กุญแจยังเป็นของ A" แล้วเซ็นข้ามบัญชีเงียบ ๆ
+   * (รายงานช่องโหว่ 7 ก.ย. 2026 — WalletConnect account-binding bypass)
+   */
+  React.useEffect(() => {
+    if (!keyRef.current) return;
+    if (keyOwnerRef.current && address && keyOwnerRef.current.toLowerCase() !== address.toLowerCase()) {
+      keyRef.current = null;
+      keyOwnerRef.current = null;
+      setReady(false); // บังคับให้ใส่รหัสใหม่สำหรับบัญชีที่สลับมา
+    }
+  }, [address]);
+
   const [uri, setUri] = React.useState("");
   const [status, setStatus] = React.useState<string | null>(null);
   const [proposal, setProposal] = React.useState<any>(null);
@@ -87,6 +106,7 @@ export default function ConnectPage() {
       return;
     }
     keyRef.current = k;
+    keyOwnerRef.current = address; // จำไว้ว่ากุญแจนี้เป็นของบัญชีไหน
     setReady(true);
     setPin("");
   };
@@ -139,7 +159,7 @@ export default function ConnectPage() {
     if (!request || !keyRef.current) return;
     setBusy(true);
     try {
-      await respondRequest(request, keyRef.current);
+      await respondRequest(request, keyRef.current, address);
       setStatus(t("connect.signed"));
     } catch (e: any) {
       setStatus(e?.message || t("connect.signFailed"));
@@ -198,11 +218,11 @@ export default function ConnectPage() {
             </div>
             <input
               type="password"
-              inputMode="numeric"
-              maxLength={6}
+
+
               value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-              onKeyDown={(e) => e.key === "Enter" && pin.length === 6 && enableSigning()}
+              onChange={(e) => setPin(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && pin.length > 0 && enableSigning()}
               placeholder={t("tx.enterPin")}
               className="dw-glass w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
               style={{ color: "var(--dw-text)" }}
@@ -214,7 +234,7 @@ export default function ConnectPage() {
             )}
             <button
               onClick={enableSigning}
-              disabled={pin.length < 6}
+              disabled={!pin}
               className="dw-btn-primary mt-4 w-full rounded-2xl py-3.5 font-semibold"
             >
               {t("connect.enableSigning")}

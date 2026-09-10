@@ -31,6 +31,9 @@ COPY --from=builder /app/public ./public
 
 # โฟลเดอร์เก็บคำขอลงลิสต์/โลโก้ (จะ mount เป็น volume)
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
+# fetch cache ของ Next (revalidate) — .next ถูก COPY มาเป็น root แต่รันด้วย nextjs
+# ถ้าไม่ chown จะเขียนไม่ได้ (EACCES) → revalidate ใช้ไม่ได้ ทุก request ยิง upstream ใหม่หมด
+RUN mkdir -p /app/.next/cache && chown -R nextjs:nodejs /app/.next
 USER nextjs
 
 EXPOSE 3000

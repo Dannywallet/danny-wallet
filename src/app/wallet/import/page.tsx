@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@/lib/wallet/wallet-store";
 import { Screen } from "@/components/wallet/PhoneShell";
 import { TopBar } from "@/components/wallet/TopBar";
-import { PinPad, PinDots } from "@/components/wallet/PinPad";
+import {
+  SecretInput,
+  SecretModeTabs,
+  SecretPolicyHint,
+  fillN,
+  type SecretMode,
+} from "@/components/wallet/SecretInput";
+import { validateSecret, MIN_PIN_LEN, MIN_PASSPHRASE_LEN } from "@/lib/wallet/crypto";
 import { SeedImportGrid } from "@/components/wallet/SeedImportGrid";
 import { WORDLIST } from "@/lib/wallet/wordlist";
 import { Mnemonic, Wallet } from "ethers";
@@ -25,6 +32,9 @@ export default function ImportWallet() {
   const [pk, setPk] = React.useState("");
   const [mode, setMode] = React.useState<"input" | "pin">("input");
   const [pin, setPin] = React.useState("");
+  const [confirmPin, setConfirmPin] = React.useState("");
+  const [secretMode, setSecretMode] = React.useState<SecretMode>("text");
+  const secretReady = validateSecret(pin).ok && pin === confirmPin && confirmPin.length > 0;
   const [busy, setBusy] = React.useState(false);
   const [importErr, setImportErr] = React.useState(false);
 
@@ -70,30 +80,26 @@ export default function ImportWallet() {
     }
   };
 
-  const onKey = (d: string) => {
-    if (pin.length >= 6 || busy) return;
-    const next = pin + d;
-    setPin(next);
-    if (next.length === 6) {
-      void (async () => {
-        setBusy(true);
-        try {
-          if (tab === "seed") {
-            const w = Wallet.fromPhrase(phrase); // throw ถ้า checksum ผิด
-            await createWallet(next, phrase, w.address);
-          } else {
-            const w = new Wallet("0x" + pkHex); // throw ถ้า key ผิด
-            await createWalletFromKey(next, w.privateKey, w.address);
-          }
-          router.replace("/wallet/home");
-        } catch {
-          setImportErr(true);
-          setPin("");
-          setMode("input");
-        } finally {
-          setBusy(false);
-        }
-      })();
+  /** สร้างกระเป๋าด้วยรหัสที่ผู้ใช้ตั้ง — เรียกเมื่อผ่านนโยบายและยืนยันตรงกันแล้ว */
+  const finish = async (secret: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (tab === "seed") {
+        const w = Wallet.fromPhrase(phrase); // throw ถ้า checksum ผิด
+        await createWallet(secret, phrase, w.address);
+      } else {
+        const w = new Wallet("0x" + pkHex); // throw ถ้า key ผิด
+        await createWalletFromKey(secret, w.privateKey, w.address);
+      }
+      router.replace("/wallet/home");
+    } catch {
+      setImportErr(true);
+      setPin("");
+      setConfirmPin("");
+      setMode("input");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -208,11 +214,54 @@ export default function ImportWallet() {
           <div className="dw-rise flex flex-col items-center pt-6">
             <h2 className="text-lg font-semibold">{tr("create.setPin")}</h2>
             <p className="mt-1 text-sm text-[var(--dw-muted)]">{tr("import.pinDesc2")}</p>
-            <div className="my-7">
-              <PinDots length={6} filled={pin.length} />
-            </div>
-            <div className="w-full max-w-[280px]">
-              <PinPad onKey={onKey} onDelete={() => setPin((p) => p.slice(0, -1))} />
+            <div className="mt-6 w-full max-w-[300px]">
+              <SecretModeTabs
+                mode={secretMode}
+                onMode={(m) => {
+                  setSecretMode(m);
+                  setPin("");
+                  setConfirmPin("");
+                }}
+                labels={{ pin: fillN(tr("sec.modePin"), MIN_PIN_LEN), text: fillN(tr("sec.modeText"), MIN_PASSPHRASE_LEN) }}
+              />
+              <SecretInput
+                value={pin}
+                onChange={setPin}
+                mode={secretMode}
+                placeholder={
+                  secretMode === "pin" ? fillN(tr("sec.phPin"), MIN_PIN_LEN) : fillN(tr("sec.phText"), MIN_PASSPHRASE_LEN)
+                }
+                autoFocus
+                disabled={busy}
+              />
+              <SecretPolicyHint
+                value={pin}
+                mode={secretMode}
+                texts={{ pinTooShort: tr("sec.pinTooShort"), textTooShort: tr("sec.textTooShort"), ok: tr("sec.lengthOk"), digitsOnly: tr("sec.digitsOnlyHint") }}
+              />
+              <label className="mb-1 mt-4 block text-xs text-[var(--dw-muted)]">
+                {tr("create.confirmPinAgain")}
+              </label>
+              <SecretInput
+                value={confirmPin}
+                onChange={setConfirmPin}
+                onSubmit={() => secretReady && void finish(pin)}
+                mode={secretMode}
+                placeholder={tr("sec.retype")}
+                disabled={busy}
+              />
+              {confirmPin.length > 0 && confirmPin !== pin && (
+                <p className="mt-2 text-center text-xs text-[var(--dw-rose)]">
+                  {tr("create.pinMismatch")}
+                </p>
+              )}
+              <button
+                onClick={() => void finish(pin)}
+                disabled={!secretReady}
+                className="dw-btn-primary mt-6 w-full rounded-2xl py-3.5 font-semibold disabled:opacity-50"
+              >
+                {busy ? "…" : tr("common.confirm")}
+              </button>
             </div>
           </div>
         )}

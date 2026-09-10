@@ -327,11 +327,11 @@ export default function SwapPage() {
         )}
         <input
           type="password"
-          inputMode="numeric"
-          maxLength={6}
+
+
           value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-          onKeyDown={(e) => e.key === "Enter" && pin.length === 6 && phase !== "swapping" && submit()}
+          onChange={(e) => setPin(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && pin.length > 0 && phase !== "swapping" && submit()}
           placeholder={t("tx.enterPin")}
           className="dw-glass w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
           style={{ color: "var(--dw-text)" }}
@@ -343,7 +343,7 @@ export default function SwapPage() {
         )}
         <button
           onClick={submit}
-          disabled={pin.length < 6 || phase === "swapping"}
+          disabled={!pin || phase === "swapping"}
           className="dw-btn-primary mt-4 w-full rounded-2xl py-3.5 font-semibold"
         >
           {phase === "swapping" ? statusText || t("swap.signing") : t("swap.signSwap")}

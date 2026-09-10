@@ -22,6 +22,47 @@ export const revalidate = 30;
 
 const RPC = "https://rpc.dannyscan.com";
 const BALANCES = (a: string) => `https://dannyscan.com/api/v2/addresses/${a}/token-balances`;
+const ADDRESS_INFO = (a: string) => `https://dannyscan.com/api/v2/addresses/${a}`;
+
+/**
+ * ยอด DAN (native) — RPC เป็นทางหลัก, explorer เป็นทางสำรอง
+ *
+ * ⚠️ ทำไมต้องมีทางสำรอง: RPC ของเชน (rpc.dannyscan.com) ล่มได้จริง — พบ 502 ต่อเนื่อง 10/10 ครั้ง
+ * เมื่อ 8 ก.ย. 2026 เดิมโค้ดจับ error แล้วข้าม DAN ไปเงียบ ๆ ทำให้ผู้ใช้เปิดกระเป๋าแล้ว
+ * "ไม่เห็น DAN" โดยไม่มีคำอธิบาย ซึ่งน่าตกใจมากสำหรับกระเป๋าเงิน (นึกว่าเงินหาย)
+ * explorer อ่าน coin_balance ได้จากฐานข้อมูลของตัวเอง จึงยังใช้ได้แม้ RPC ตาย
+ */
+async function fetchNativeWei(address: string): Promise<{ wei: bigint; source: "rpc" | "explorer" } | null> {
+  // 1) RPC — สดที่สุด
+  try {
+    const res = await fetch(RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", method: "eth_getBalance", params: [address, "latest"], id: 1 }),
+      next: { revalidate },
+    });
+    if (res.ok) {
+      const j = (await res.json()) as { result?: string };
+      if (j?.result) return { wei: BigInt(j.result), source: "rpc" };
+    }
+  } catch {
+    /* RPC ล่ม/ตอบไม่ใช่ JSON → ไปใช้ explorer */
+  }
+  // 2) explorer — ช้ากว่าเล็กน้อยแต่ยังอ่านได้เมื่อ RPC ตาย
+  try {
+    const res = await fetch(ADDRESS_INFO(address), {
+      headers: { Accept: "application/json" },
+      next: { revalidate },
+    });
+    if (res.ok) {
+      const j = (await res.json()) as { coin_balance?: string | null };
+      if (j?.coin_balance != null) return { wei: BigInt(j.coin_balance), source: "explorer" };
+    }
+  } catch {
+    /* ทั้งสองทางล่ม → คืน null ให้ผู้เรียกแจ้งผู้ใช้ */
+  }
+  return null;
+}
 
 // LP / token ที่ซ่อน (lowercase)
 const HIDDEN = new Set<string>(["0x984da6101dc51cf2d18ba389610db339b96e936a"]);
@@ -64,14 +105,9 @@ export async function GET(req: Request) {
   }
 
   try {
-    const [balRes, nativeRes, prices, logoMap, dandexLogos, approvedLogos] = await Promise.all([
+    const [balRes, native, prices, logoMap, dandexLogos, approvedLogos] = await Promise.all([
       fetch(BALANCES(address), { headers: { Accept: "application/json" }, next: { revalidate } }),
-      fetch(RPC, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", method: "eth_getBalance", params: [address, "latest"], id: 1 }),
-        next: { revalidate },
-      }),
+      fetchNativeWei(address),
       fetchDannyPrices(revalidate),
       fetchDannyLogos(),
       readDandexLogos(),
@@ -113,27 +149,23 @@ export async function GET(req: Request) {
     );
     const danPrice = dandex.wdanUsd ?? nativeDanPrice(prices);
 
-    // 1) native DAN
-    try {
-      const nj = (await nativeRes.json()) as { result?: string };
-      const wei = nj.result ? BigInt(nj.result) : BigInt(0);
-      const danBal = Number(wei) / 1e18;
-      if (danBal > 0) {
-        holdings.push({
-          address: null,
-          symbol: "DAN",
-          name: "Danny",
-          balance: danBal,
-          priceUsd: danPrice,
-          valueUsd: danPrice != null ? danBal * danPrice : null,
-          change24h: dandex.change24h.get(WDAN.toLowerCase()) ?? prices.get(WDAN.toLowerCase())?.change24h ?? null,
-          logo: logoMap.get(WDAN.toLowerCase()) ?? null,
-          isNative: true,
-          spam: false,
-        });
-      }
-    } catch {
-      /* skip native */
+    // 1) native DAN — แสดงเสมอแม้ยอดเป็น 0
+    // เดิมมีเงื่อนไข danBal > 0 ทำให้กระเป๋าที่ยังไม่มี DAN ไม่เห็นแถว DAN เลย
+    // และ catch เดิมกลืน error ของ RPC ทำให้ DAN หายเงียบ ๆ ตอน RPC ล่ม (ดู fetchNativeWei)
+    if (native) {
+      const danBal = Number(native.wei) / 1e18;
+      holdings.push({
+        address: null,
+        symbol: "DAN",
+        name: "Danny",
+        balance: danBal,
+        priceUsd: danPrice,
+        valueUsd: danPrice != null ? danBal * danPrice : null,
+        change24h: dandex.change24h.get(WDAN.toLowerCase()) ?? prices.get(WDAN.toLowerCase())?.change24h ?? null,
+        logo: logoMap.get(WDAN.toLowerCase()) ?? null,
+        isNative: true,
+        spam: false,
+      });
     }
 
     // 2) ERC-20 balances — ติด flag สแปม (ไม่มีราคาตลาดจริง/พูลฝุ่น หรือชื่อเข้าข่ายหลอกลวง)
@@ -179,6 +211,8 @@ export async function GET(req: Request) {
       totalUsd,
       change24h,
       pricedCount: real.filter((h) => h.priceUsd != null).length,
+      // แหล่งที่มาของยอด DAN: "rpc" (สด) · "explorer" (สำรอง ตอน RPC ล่ม) · null = ดึงไม่ได้เลย
+      nativeSource: native?.source ?? null,
       count: real.length, // จำนวนเหรียญปกติ (ไม่รวมสแปม)
       hiddenCount: holdings.length - real.length, // จำนวนเหรียญสแปมที่ซ่อน
       holdings,

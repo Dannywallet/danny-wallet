@@ -34,6 +34,8 @@ export default function DappConnect() {
   const { t: tr } = useI18n();
   const { address, getActivePrivateKey } = useWallet();
   const keyRef = React.useRef<string | null>(null);
+  // ที่อยู่เจ้าของกุญแจใน keyRef — ใช้ตรวจว่ากุญแจยังตรงกับบัญชีปัจจุบันไหม
+  const keyOwnerRef = React.useRef<string | null>(null);
   const [ready, setReady] = React.useState(false);
   const [pin, setPin] = React.useState("");
   const [pinErr, setPinErr] = React.useState(false);
@@ -63,11 +65,28 @@ export default function DappConnect() {
     return () => { if (w) { w.off?.("session_proposal", onProposal); w.off?.("session_request", onRequest); } };
   }, [ready]);
 
+  /**
+   * ⚠️ ล้างกุญแจที่แคชไว้ทันทีที่ผู้ใช้สลับบัญชี
+   * เดิม keyRef ตั้งครั้งเดียวและไม่เคยถูกล้าง ขณะที่ address เป็นค่า reactive
+   * ทำให้ "อนุมัติ session เป็น B แต่กุญแจยังเป็นของ A" แล้วเซ็นข้ามบัญชีเงียบ ๆ
+   * (รายงานช่องโหว่ 7 ก.ย. 2026 — WalletConnect account-binding bypass)
+   */
+  React.useEffect(() => {
+    if (!keyRef.current) return;
+    if (keyOwnerRef.current && address && keyOwnerRef.current.toLowerCase() !== address.toLowerCase()) {
+      keyRef.current = null;
+      keyOwnerRef.current = null;
+      setReady(false); // บังคับใส่รหัสใหม่สำหรับบัญชีที่สลับมา
+    }
+  }, [address]);
+
   const enableSigning = async () => {
     setPinErr(false);
     const k = await getActivePrivateKey(pin);
     if (!k) { setPinErr(true); return; }
-    keyRef.current = k; setReady(true); setPin("");
+    keyRef.current = k;
+    keyOwnerRef.current = address; // จำไว้ว่ากุญแจนี้เป็นของบัญชีไหน
+    setReady(true); setPin("");
   };
   const doPair = async () => {
     if (!uri.trim()) return;
@@ -87,7 +106,7 @@ export default function DappConnect() {
   const confirmRequest = async () => {
     if (!request || !keyRef.current) return;
     setBusy(true);
-    try { await respondRequest(request, keyRef.current); setStatus(tr("connect.signed")); }
+    try { await respondRequest(request, keyRef.current, address); setStatus(tr("connect.signed")); }
     catch (e: any) { setStatus(e?.message || tr("connect.signFailed")); }
     finally { setRequest(null); setBusy(false); }
   };
@@ -121,13 +140,13 @@ export default function DappConnect() {
             <Shield size={18} className="mt-0.5 shrink-0 text-[var(--dw-green)]" />
             {tr("connect.pinUnlock")}
           </div>
-          <input type="password" inputMode="numeric" maxLength={6} value={pin} autoFocus
-            onChange={(e) => { setPin(e.target.value.replace(/\D/g, "")); setPinErr(false); }}
-            onKeyDown={(e) => e.key === "Enter" && pin.length === 6 && enableSigning()}
+          <input type="password"   value={pin} autoFocus
+            onChange={(e) => { setPin(e.target.value); setPinErr(false); }}
+            onKeyDown={(e) => e.key === "Enter" && pin.length > 0 && enableSigning()}
             placeholder={tr("tx.enterPin")}
             className="dw-glass mt-4 w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50" style={{ color: "var(--dw-text)" }} />
           {pinErr && <p className="mt-2 flex items-center justify-center gap-1 text-xs text-[var(--dw-rose)]"><Warn size={13} /> {tr("tx.pinWrong")}</p>}
-          <button onClick={enableSigning} disabled={pin.length < 6} className="dw-btn-primary mt-4 w-full rounded-2xl py-3.5 font-semibold disabled:opacity-50">{tr("connect.enableSigning")}</button>
+          <button onClick={enableSigning} disabled={!pin} className="dw-btn-primary mt-4 w-full rounded-2xl py-3.5 font-semibold disabled:opacity-50">{tr("connect.enableSigning")}</button>
         </div>
       ) : (
         <>

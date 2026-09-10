@@ -3,7 +3,16 @@
 // สถานะ wallet (client) — เก็บ seed แบบเข้ารหัส, ตรวจ PIN ด้วย AES-GCM, ป้องกัน brute-force
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import React from "react";
-import { encryptWithPin, decryptWithPin, verifyPin, type EncBlob } from "./crypto";
+import {
+  encryptWithPin,
+  decryptWithPin,
+  verifyPin,
+  isLegacyBlob,
+  upgradeBlob,
+  isWeakSecret,
+  KdfError,
+  type EncBlob,
+} from "./crypto";
 import { HDNodeWallet, Mnemonic, Wallet } from "ethers";
 
 const KEY = "dannywallet.v2";
@@ -51,7 +60,16 @@ const DEFAULTS: Persisted = {
   lockedUntil: 0,
 };
 
-type WalletState = Persisted & { hydrated: boolean; locked: boolean };
+type WalletState = Persisted & {
+  hydrated: boolean;
+  locked: boolean;
+  /**
+   * true = รหัสที่ใช้ปลดล็อกอ่อนเกินนโยบายปัจจุบัน (เช่น PIN 6 หลักแบบเดิม) → ต้องบังคับตั้งใหม่
+   * ไม่เก็บลง localStorage โดยตั้งใจ — คำนวณสดจากรหัสจริงตอนปลดล็อกเท่านั้น
+   * ถ้าเก็บลง storage ผู้ใช้ (หรือผู้โจมตี) แก้ค่าเพื่อข้ามการบังคับได้
+   */
+  needsSecretUpgrade?: boolean;
+};
 
 type WalletCtx = WalletState & {
   address: string | null; // ที่อยู่ของบัญชีที่ใช้งานอยู่
@@ -59,7 +77,15 @@ type WalletCtx = WalletState & {
   createWallet: (pin: string, mnemonic: string, address: string) => Promise<void>;
   /** สร้างกระเป๋าจาก private key ล้วน (ไม่มี seed) */
   createWalletFromKey: (pin: string, privateKey: string, address: string) => Promise<void>;
-  unlock: (pin: string) => Promise<{ ok: boolean; wiped?: boolean; cooldownMs?: number }>;
+  unlock: (pin: string) => Promise<{
+    ok: boolean;
+    wiped?: boolean;
+    cooldownMs?: number;
+    /** true = ปลดล็อกผ่าน แต่รหัสอ่อนเกินนโยบาย → ต้องพาไปหน้าตั้งรหัสใหม่ */
+    needsSecretUpgrade?: boolean;
+    /** true = ระบบ derive key ล้มเหลว (ไม่ใช่รหัสผิด) — ไม่นับเป็นครั้งที่ผิด ให้ลองใหม่ */
+    systemError?: boolean;
+  }>;
   lock: () => void;
   reset: () => void;
   toggleBalance: () => void;
@@ -262,6 +288,51 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     persist({ accounts });
   }, [persist]);
 
+  /**
+   * อัปเกรดรูปแบบเข้ารหัสเก่า (PBKDF2) → scrypt หลังปลดล็อกสำเร็จ
+   * ทำแบบเงียบและไม่บล็อก UI — ถ้าอัปเกรดไม่สำเร็จให้คงของเดิมไว้ ผู้ใช้ยังใช้งานได้ตามปกติ
+   */
+  const migrateEncryption = useCallback(
+    async (cur: Persisted, secret: string) => {
+      try {
+        const seedNeeds = !!cur.enc && isLegacyBlob(cur.enc);
+        const accNeeds = cur.accounts.some((a) => a.enc && isLegacyBlob(a.enc));
+        if (!seedNeeds && !accNeeds) return;
+
+        const nextEnc = seedNeeds ? await upgradeBlob(cur.enc as EncBlob, secret) : null;
+        // อัปเกรดทีละบัญชี แล้วเก็บผลไว้เป็น map ตามที่อยู่ (ไม่ยึดลำดับใน array)
+        const upgraded = new Map<string, EncBlob>();
+        await Promise.all(
+          cur.accounts.map(async (a) => {
+            if (!a.enc || !isLegacyBlob(a.enc)) return;
+            const up = await upgradeBlob(a.enc, secret);
+            if (up) upgraded.set(a.address.toLowerCase(), up);
+          })
+        );
+
+        // ⚠️ ต้องอ่านสถานะล่าสุดตอนจะเขียน — ห้ามเขียนทับด้วย snapshot จากตอนปลดล็อก
+        // ฟังก์ชันนี้ถูกยิงแบบไม่ await และ scrypt ใช้เวลาหลายร้อย ms ต่อ blob
+        // ถ้าผู้ใช้เพิ่ม/ลบ/เปลี่ยนชื่อบัญชีระหว่างนั้น การเขียนทับทั้งก้อนจะทำให้บัญชีใหม่หาย
+        // พร้อม private key — merge เฉพาะช่อง enc ของบัญชีที่ยังเป็นรูปแบบเก่าอยู่จริง
+        const latest = load();
+        const mergedAccounts = latest.accounts.map((a) => {
+          const up = upgraded.get(a.address.toLowerCase());
+          return up && a.enc && isLegacyBlob(a.enc) ? { ...a, enc: up } : a;
+        });
+        // seed ก็เช่นกัน — เขียนทับเฉพาะเมื่อของล่าสุดยังเป็นรูปแบบเก่า
+        // (ถ้าผู้ใช้เพิ่งเปลี่ยนรหัส seed จะถูกเข้ารหัสใหม่ไปแล้ว ห้ามทับด้วยของเก่า)
+        const seedStillLegacy = !!latest.enc && isLegacyBlob(latest.enc);
+        persist({
+          ...(nextEnc && seedStillLegacy ? { enc: nextEnc } : {}),
+          accounts: mergedAccounts,
+        });
+      } catch {
+        /* อัปเกรดล้มเหลว = ใช้รูปแบบเดิมต่อได้ ไม่กระทบผู้ใช้ */
+      }
+    },
+    [persist]
+  );
+
   const unlock = useCallback(async (pin: string) => {
     const cur = load();
     // ตรวจ cooldown
@@ -272,11 +343,24 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const blob = cur.enc ?? cur.accounts[cur.activeIndex]?.enc ?? cur.accounts.find((a) => a.enc)?.enc ?? null;
     if (!blob) return { ok: false };
 
-    const ok = await verifyPin(blob, pin);
+    // KdfError = ระบบ derive key ล้มเหลว (เช่น scrypt จองแรม 64 MB ไม่ได้บนมือถือ)
+    // ⚠️ ห้ามนับเป็นครั้งที่ใส่ผิดเด็ดขาด ไม่งั้นเครื่องแรมน้อยจะทำให้กระเป๋าถูกล้างทั้งที่รหัสถูก
+    let ok: boolean;
+    try {
+      ok = await verifyPin(blob, pin);
+    } catch (e) {
+      if (e instanceof KdfError) return { ok: false, systemError: true };
+      throw e;
+    }
     if (ok) {
+      // ตรวจความแข็งแรงของรหัสจริงที่เพิ่งใช้ปลดล็อก — เก็บเป็น state ชั่วคราวเท่านั้น
+      const weak = isWeakSecret(pin);
       persist({ failedAttempts: 0, lockedUntil: 0 });
-      setState((s) => ({ ...s, locked: false }));
-      return { ok: true };
+      setState((s) => ({ ...s, locked: false, needsSecretUpgrade: weak }));
+      // ไม่ await — ปลดล็อกต้องเร็ว ส่วนการอัปเกรดทำเบื้องหลังได้
+      // ถ้ารหัสอ่อนอยู่แล้ว ข้ามไปเลย เพราะผู้ใช้กำลังจะถูกบังคับตั้งรหัสใหม่ (changePin เข้ารหัสใหม่ให้อยู่แล้ว)
+      if (!weak) void migrateEncryption(cur, pin);
+      return { ok: true, needsSecretUpgrade: weak };
     }
 
     // ผิด → เพิ่มตัวนับ + หน่วง/ล้าง
@@ -289,9 +373,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const cd = cooldownFor(attempts);
     persist({ failedAttempts: attempts, lockedUntil: cd ? Date.now() + cd : 0 });
     return { ok: false, cooldownMs: cd };
-  }, [persist]);
+  }, [persist, migrateEncryption]);
 
-  const lock = useCallback(() => setState((s) => ({ ...s, locked: true })), []);
+  const lock = useCallback(
+    () => setState((s) => ({ ...s, locked: true, needsSecretUpgrade: false })),
+    []
+  );
 
   const reset = useCallback(() => {
     save(DEFAULTS);
@@ -332,6 +419,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         )
       );
       persist({ enc, accounts, failedAttempts: 0, lockedUntil: 0 });
+      // รหัสใหม่ผ่านนโยบายแล้ว (หน้า UI ตรวจก่อนเรียก) → ปลดธงบังคับเปลี่ยน
+      setState((s) => ({ ...s, needsSecretUpgrade: isWeakSecret(newPin) }));
       return true;
     } catch {
       return false;

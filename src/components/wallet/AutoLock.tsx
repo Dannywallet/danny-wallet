@@ -6,10 +6,18 @@ import { usePathname, useRouter } from "next/navigation";
 import { useWallet } from "@/lib/wallet/wallet-store";
 
 export function AutoLock() {
-  const { created, locked, autoLockMin, lock } = useWallet();
+  const { created, locked, autoLockMin, lock, needsSecretUpgrade } = useWallet();
   const router = useRouter();
   const pathname = usePathname();
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ยามบังคับตั้งรหัสใหม่ — ผู้ใช้ที่ปลดล็อกด้วยรหัสอ่อนต้องผ่านหน้านี้ก่อนใช้งานอย่างอื่น
+  // ถ้าไม่มียามตรงนี้ ผู้ใช้พิมพ์ /wallet/home เองก็ข้ามได้ ทำให้การบังคับไม่มีผลจริง
+  // (mount อยู่ใน layout จึงครอบทุกหน้าใต้ /wallet)
+  React.useEffect(() => {
+    if (!created || locked || !needsSecretUpgrade) return;
+    if (pathname !== "/wallet/upgrade-pin") router.replace("/wallet/upgrade-pin");
+  }, [created, locked, needsSecretUpgrade, pathname, router]);
 
   React.useEffect(() => {
     if (!created || locked) return;

@@ -398,11 +398,11 @@ export default function Send() {
         </p>
         <input
           type="password"
-          inputMode="numeric"
-          maxLength={6}
+
+
           value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-          onKeyDown={(e) => e.key === "Enter" && pin.length === 6 && !sending && submit()}
+          onChange={(e) => setPin(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && pin.length > 0 && !sending && submit()}
           placeholder={t("tx.enterPin")}
           className="dw-glass w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
           style={{ color: "var(--dw-text)" }}
@@ -414,7 +414,7 @@ export default function Send() {
         )}
         <button
           onClick={submit}
-          disabled={pin.length < 6 || sending}
+          disabled={!pin || sending}
           className="dw-btn-primary mt-4 w-full rounded-2xl py-3.5 font-semibold"
         >
           {sending ? (status || t("send.signing")) : t("send.signSend")}

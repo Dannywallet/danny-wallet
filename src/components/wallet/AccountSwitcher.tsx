@@ -110,11 +110,11 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
           </div>
           <input
             type="password"
-            inputMode="numeric"
-            maxLength={6}
+
+
             value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-            onKeyDown={(e) => e.key === "Enter" && pin.length === 6 && (mode === "create" ? doCreate() : doAdd())}
+            onChange={(e) => setPin(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && pin.length > 0 && (mode === "create" ? doCreate() : doAdd())}
             placeholder={t("tx.enterPin")}
             className="dw-glass w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
             style={{ color: "var(--dw-text)" }}
@@ -126,7 +126,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
           )}
           <div className="mt-4 grid grid-cols-2 gap-3">
             <button onClick={() => { setMode("list"); setErr(null); setPin(""); }} className="dw-btn-ghost rounded-2xl py-3 font-semibold">{t("common.cancel")}</button>
-            <button onClick={mode === "create" ? doCreate : doAdd} disabled={pin.length < 6 || busy} className="dw-btn-primary rounded-2xl py-3 font-semibold">
+            <button onClick={mode === "create" ? doCreate : doAdd} disabled={!pin || busy} className="dw-btn-primary rounded-2xl py-3 font-semibold">
               {busy ? t("acct.creating") : t("acct.createAccount")}
             </button>
           </div>
@@ -147,10 +147,10 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
           />
           <input
             type="password"
-            inputMode="numeric"
-            maxLength={6}
+
+
             value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => setPin(e.target.value)}
             placeholder={t("tx.enterPin")}
             className="dw-glass mt-3 w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
             style={{ color: "var(--dw-text)" }}
@@ -162,7 +162,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
           )}
           <div className="mt-4 grid grid-cols-2 gap-3">
             <button onClick={() => { setMode("list"); setErr(null); setPin(""); setPk(""); }} className="dw-btn-ghost rounded-2xl py-3 font-semibold">{t("common.cancel")}</button>
-            <button onClick={doImport} disabled={pk.trim().length < 60 || pin.length < 6 || busy} className="dw-btn-primary rounded-2xl py-3 font-semibold">
+            <button onClick={doImport} disabled={pk.trim().length < 60 || !pin || busy} className="dw-btn-primary rounded-2xl py-3 font-semibold">
               {busy ? t("acct.importing") : t("acct.import")}
             </button>
           </div>
@@ -177,11 +177,11 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
             <>
               <input
                 type="password"
-                inputMode="numeric"
-                maxLength={6}
+
+
                 value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-                onKeyDown={(e) => e.key === "Enter" && pin.length === 6 && doExport()}
+                onChange={(e) => setPin(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && pin.length > 0 && doExport()}
                 placeholder={t("tx.enterPin")}
                 className="dw-glass w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
                 style={{ color: "var(--dw-text)" }}
@@ -193,7 +193,7 @@ export function AccountSwitcher({ open, onClose }: { open: boolean; onClose: () 
               )}
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <button onClick={() => { setMode("list"); setErr(null); setPin(""); }} className="dw-btn-ghost rounded-2xl py-3 font-semibold">{t("common.cancel")}</button>
-                <button onClick={doExport} disabled={pin.length < 6 || busy} className="dw-btn-primary rounded-2xl py-3 font-semibold">
+                <button onClick={doExport} disabled={!pin || busy} className="dw-btn-primary rounded-2xl py-3 font-semibold">
                   {busy ? t("acct.revealing") : t("acct.revealKey")}
                 </button>
               </div>

@@ -25,6 +25,11 @@ const DANCHARTS = "https://dexchart.dancharts.com/pair/history/list";
 
 export const revalidate = 60; // cache 60 วินาที
 
+// Blockscout คืน 50 รายการ/หน้า และเรียงตาม market cap/holders — หน้าแรกถูก DAN-LP กินไปกว่าครึ่ง
+// ทำให้เหรียญจริงที่ holders น้อย (ME, MEME, FZ, LFC, YUT ฯลฯ) ตกไปหน้า 2 แล้วหายจากลิสต์
+// → ต้องไล่ตาม next_page_params ให้ครบ (จำกัดจำนวนหน้ากันลูปยาว)
+const MAX_PAGES = 5;
+
 type PriceInfo = { priceUsd: number; change24h: number; vol24hUSD: number; mcap: number; pair: string | null };
 
 /** ดึงราคาจาก dancharts → map: contract(lowercase) → ราคา (ใช้ dependantToken ของแต่ละคู่) */
@@ -89,6 +94,48 @@ export type DannyToken = {
   type: string;
 };
 
+type TokenPage = { items?: RawToken[]; next_page_params?: Record<string, unknown> | null };
+
+/** ดึงรายชื่อ token ทุกหน้าจาก Blockscout (dedupe ตาม address) */
+async function fetchAllTokens(): Promise<{
+  items: RawToken[];
+  status: number; // 200 = ได้ข้อมูล, อื่น ๆ = หน้าแรกล้มเหลว
+  pages: number;
+  truncated: boolean; // true = ยังมีหน้าถัดไปแต่ชน MAX_PAGES
+}> {
+  const byAddr = new Map<string, RawToken>();
+  let next: Record<string, unknown> | null = null;
+  let pages = 0;
+
+  while (pages < MAX_PAGES) {
+    const qs = next
+      ? "?" +
+        new URLSearchParams(
+          Object.entries(next).map(([k, v]) => [k, v == null ? "" : String(v)])
+        ).toString()
+      : "";
+    const res = await fetch(BLOCKSCOUT + qs, {
+      headers: { Accept: "application/json" },
+      next: { revalidate },
+    });
+    // หน้าแรกล้มเหลว = ไม่มีข้อมูลเลย → รายงาน error; หน้าถัด ๆ ล้มเหลว = ใช้เท่าที่ได้
+    if (!res.ok) {
+      if (pages === 0) return { items: [], status: res.status, pages: 0, truncated: false };
+      break;
+    }
+    const j = (await res.json()) as TokenPage;
+    for (const t of j.items || []) {
+      const k = (t.address || "").toLowerCase();
+      if (k && !byAddr.has(k)) byAddr.set(k, t);
+    }
+    pages++;
+    next = j.next_page_params ?? null;
+    if (!next) break;
+  }
+
+  return { items: [...byAddr.values()], status: 200, pages, truncated: !!next };
+}
+
 function toUnits(supply: string | null, decimals: number): number {
   if (!supply) return 0;
   try {
@@ -100,8 +147,8 @@ function toUnits(supply: string | null, decimals: number): number {
 
 export async function GET() {
   try {
-    const [res, priceMap, logoMap, dandexLogos, approvedLogos] = await Promise.all([
-      fetch(BLOCKSCOUT, { headers: { Accept: "application/json" }, next: { revalidate } }),
+    const [page, priceMap, logoMap, dandexLogos, approvedLogos] = await Promise.all([
+      fetchAllTokens(),
       fetchPrices(),
       fetchDannyLogos(),
       readDandexLogos(),
@@ -110,13 +157,13 @@ export async function GET() {
     // ลำดับความสำคัญ: static/dancharts < dandex-sync (cron) < approved (แอดมิน)
     for (const [addr, url] of Object.entries(dandexLogos)) logoMap.set(addr.toLowerCase(), url);
     for (const [addr, url] of Object.entries(approvedLogos)) logoMap.set(addr.toLowerCase(), url);
-    if (!res.ok) {
+    if (page.status !== 200) {
       return NextResponse.json(
-        { error: `explorer ตอบกลับ ${res.status}`, tokens: [] },
+        { error: `explorer ตอบกลับ ${page.status}`, tokens: [] },
         { status: 502 }
       );
     }
-    const data = (await res.json()) as { items: RawToken[] };
+    const data = { items: page.items };
     // ตัด LP token (liquidity pool ของ DEX) ออก เช่น "DAN-LP"
     const isLp = (t: RawToken) => {
       const sym = (t.symbol || "").trim();
@@ -171,6 +218,9 @@ export async function GET() {
       source: "dannyscan (รายชื่อ) + dandex on-chain (ราคา) + dancharts (24ชม./วอลุ่ม)",
       count: tokens.length,
       pricedCount,
+      scanned: page.items.length, // จำนวน token ทั้งหมดที่อ่านมาก่อนกรอง LP/hidden
+      pages: page.pages,
+      truncated: page.truncated, // true = ยังมีหน้าถัดไปที่ไม่ได้อ่าน (ชน MAX_PAGES)
       fetchedAt: new Date().toISOString(),
       tokens,
     });

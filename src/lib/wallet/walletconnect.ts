@@ -185,7 +185,40 @@ export function isUnlimitedApproval(method: string, params: any[]): boolean {
 }
 
 /** ตอบคำขอเซ็น — เซ็นด้วย private key ของบัญชีที่ใช้งานอยู่ */
-export async function respondRequest(event: any, privateKey: string): Promise<void> {
+/** เทียบที่อยู่แบบไม่สนตัวพิมพ์ (คำขอจาก dApp มาได้ทั้งตัวเล็ก/checksum) */
+function sameAddress(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false;
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+/**
+ * ผูกลายเซ็นกับบัญชีที่คำขอระบุ — กันกรณี "อนุมัติเป็น B แต่ A เซ็น"
+ *
+ * ⚠️ เดิมฟังก์ชันนี้เซ็นด้วย key ที่ส่งเข้ามาโดยไม่ดูเลยว่าคำขอระบุบัญชีไหน
+ * (eth_sendTransaction ไม่เคยอ่าน tx.from · personal_sign ไม่สนใจ address ใน params)
+ * ทำให้ถ้า key ที่ส่งมาค้างจากบัญชีก่อนหน้า จะเซ็นข้ามบัญชีเงียบ ๆ
+ * ตอนนี้ถ้าไม่ตรงจะโยน error ให้ล้มเหลวแบบเห็นชัด แทนที่จะเซ็นผิดบัญชี
+ */
+function assertAccountMatches(declared: string | undefined | null, signerAddress: string, what: string): void {
+  // dApp ไม่ระบุบัญชีมา = ไม่มีอะไรให้เทียบ ปล่อยผ่าน (ยังมียามชั้นสองที่ฝั่ง UI)
+  if (!declared) return;
+  if (!sameAddress(declared, signerAddress)) {
+    throw new Error(
+      `บัญชีไม่ตรงกัน: คำขอ${what}ระบุ ${declared} แต่กุญแจที่จะใช้เซ็นเป็นของ ${signerAddress} — ยกเลิกเพื่อความปลอดภัย`
+    );
+  }
+}
+
+/**
+ * ตอบคำขอจาก dApp
+ * @param expectedAddress ที่อยู่ของบัญชีที่ผู้ใช้เห็น/อนุมัติอยู่บนหน้าจอ
+ *        ใช้ตรวจซ้ำว่าตรงกับกุญแจที่ส่งมาจริง (กัน key ค้างจากบัญชีก่อนหน้า)
+ */
+export async function respondRequest(
+  event: any,
+  privateKey: string,
+  expectedAddress?: string | null
+): Promise<void> {
   const w = await getWeb3Wallet();
   const { topic, params, id } = event;
   const { request } = params;
@@ -194,16 +227,27 @@ export async function respondRequest(event: any, privateKey: string): Promise<vo
 
   let result: string;
   try {
+    // ยามชั้นแรก: กุญแจที่จะเซ็นต้องเป็นของบัญชีที่ UI กำลังแสดงอยู่
+    if (expectedAddress && !sameAddress(expectedAddress, signer.address)) {
+      throw new Error(
+        `บัญชีไม่ตรงกัน: หน้าจอแสดง ${expectedAddress} แต่กุญแจเป็นของ ${signer.address} — ยกเลิกเพื่อความปลอดภัย`
+      );
+    }
+
     switch (request.method) {
       case "personal_sign":
       case "eth_sign": {
         // personal_sign: [message, address] / eth_sign: [address, message]
         const msg = request.method === "personal_sign" ? request.params[0] : request.params[1];
+        const declared = request.method === "personal_sign" ? request.params[1] : request.params[0];
+        assertAccountMatches(declared, signer.address, "เซ็นข้อความ");
         result = await signer.signMessage(getBytes(msg));
         break;
       }
       case "eth_signTypedData":
       case "eth_signTypedData_v4": {
+        // params: [address, typedDataJson]
+        assertAccountMatches(request.params[0], signer.address, "เซ็นข้อมูล");
         const data = JSON.parse(request.params[1]);
         // ตัด EIP712Domain ออกจาก types ก่อนเซ็น (ethers ใส่ให้เอง)
         const { EIP712Domain, ...types } = data.types;
@@ -212,7 +256,9 @@ export async function respondRequest(event: any, privateKey: string): Promise<vo
       }
       case "eth_sendTransaction": {
         const tx = request.params[0];
+        assertAccountMatches(tx?.from, signer.address, "ธุรกรรม");
         const sent = await signer.sendTransaction({
+          from: signer.address, // ส่ง from ให้ตรงกับผู้เซ็นจริงเสมอ
           to: tx.to,
           value: tx.value ?? 0n,
           data: tx.data,

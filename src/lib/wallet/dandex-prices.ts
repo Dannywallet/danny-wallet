@@ -21,15 +21,28 @@ function pad(addr: string): string {
   return addr.toLowerCase().replace(/^0x/, "").padStart(64, "0");
 }
 
+/**
+ * เรียก eth_call — คืน "0x" เมื่อ RPC ล่มแทนที่จะ throw
+ *
+ * ⚠️ เดิม res.json() ไม่มี try/catch เมื่อ RPC ตอบ HTML (502 จาก openresty)
+ * การ parse จะ throw ทะลุขึ้นไปถึง route แล้วทำให้ทั้ง /api/danny/portfolio
+ * ตอบ error ทั้งก้อน — ผู้ใช้ไม่เห็นแม้แต่เหรียญที่ไม่ต้องพึ่ง RPC
+ * ราคาเป็นข้อมูลเสริม ไม่ควรทำให้ทั้งกระเป๋าใช้ไม่ได้ (พบเหตุจริง 8 ก.ย. 2026)
+ */
 async function ethCall(to: string, data: string, revalidate: number): Promise<string> {
-  const res = await fetch(RPC, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", method: "eth_call", params: [{ to, data }, "latest"], id: 1 }),
-    next: { revalidate },
-  });
-  const j = (await res.json()) as { result?: string };
-  return j.result || "0x";
+  try {
+    const res = await fetch(RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", method: "eth_call", params: [{ to, data }, "latest"], id: 1 }),
+      next: { revalidate },
+    });
+    if (!res.ok) return "0x"; // 502/503 ตอน RPC ล่ม
+    const j = (await res.json()) as { result?: string };
+    return j.result || "0x";
+  } catch {
+    return "0x"; // ตอบไม่ใช่ JSON (หน้า error ของ proxy) หรือเครือข่ายล้ม
+  }
 }
 
 async function getPair(a: string, b: string, rv: number): Promise<string> {
@@ -53,6 +66,11 @@ function isToken0(token: string, other: string): boolean {
 const SYNC_TOPIC = "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1";
 const BLOCKS_24H = 43200; // ~2 วินาที/บล็อก → 24 ชม.
 const LOG_WINDOW = 5000; // ช่วงบล็อกย้อนหา Sync event ก่อนจุด 24 ชม. (RPC จำกัด ~5000)
+// ปัดเลขบล็อกลงล็อกละ 200 (~7 นาที) ก่อนใส่ใน body ของ eth_getLogs
+// เหตุผล: ถ้าใช้เลขบล็อกสด ๆ body จะไม่ซ้ำเลย → Next สร้าง cache entry ใหม่ทุกครั้ง
+// จนดิสก์บวม (เคยโตถึง 72 GB) · การปัดทำให้ key ซ้ำได้โดยไม่ต้องปิด cache
+// (ปิด cache ด้วย no-store ไม่ได้ เพราะขัดกับ export const revalidate ของ route)
+const BLOCK_BUCKET = 200;
 
 /** ราคาของ base เทียบ quote จาก reserves (decimal-adjusted) */
 function priceFromReserves(
@@ -179,7 +197,7 @@ export async function fetchDandexPrices(
   try {
     const cur = await blockNumber(revalidate);
     if (cur && cur > BLOCKS_24H) {
-      const to = cur - BLOCKS_24H;
+      const to = Math.floor((cur - BLOCKS_24H) / BLOCK_BUCKET) * BLOCK_BUCKET;
       const from = Math.max(1, to - LOG_WINDOW);
       // ราคา WDAN เมื่อ 24 ชม.ก่อน
       const wdanResThen = await lastSyncReserves(wdanPair, from, to, revalidate);

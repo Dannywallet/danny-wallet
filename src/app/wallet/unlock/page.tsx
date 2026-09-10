@@ -4,7 +4,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/lib/wallet/wallet-store";
 import { Screen } from "@/components/wallet/PhoneShell";
-import { PinPad, PinDots } from "@/components/wallet/PinPad";
+import { SecretInput } from "@/components/wallet/SecretInput";
 import { DannyLogo } from "@/components/wallet/DannyLogo";
 import { Shield, Warn } from "@/components/wallet/Icons";
 import { useI18n } from "@/lib/wallet/i18n";
@@ -44,7 +44,7 @@ export default function Unlock() {
   const tryUnlock = async (code: string) => {
     if (busy || cooldown > 0) return;
     setBusy(true);
-    let res: { ok: boolean; wiped?: boolean; cooldownMs?: number };
+    let res: { ok: boolean; wiped?: boolean; cooldownMs?: number; needsSecretUpgrade?: boolean; systemError?: boolean };
     try {
       res = await unlock(code);
     } catch (e) {
@@ -56,7 +56,15 @@ export default function Unlock() {
     }
     setBusy(false);
     if (res.ok) {
-      router.replace("/wallet/home");
+      // รหัสอ่อนเกินนโยบาย (เช่น PIN 6 หลักแบบเดิม) → บังคับตั้งใหม่ก่อนเข้าใช้งาน
+      router.replace(res.needsSecretUpgrade ? "/wallet/upgrade-pin" : "/wallet/home");
+      return;
+    }
+    // ระบบ derive key ล้มเหลว (เช่นแรมไม่พอสำหรับ scrypt) — ไม่ใช่รหัสผิด
+    // ไม่ล้างช่องกรอกและไม่ถูกนับเป็นครั้งที่ผิด ให้ผู้ใช้กดลองใหม่ได้เลย
+    if (res.systemError) {
+      setErr(t("unlock.systemBusy"));
+      setTimeout(() => setErr(null), 3000);
       return;
     }
     setPin("");
@@ -74,14 +82,10 @@ export default function Unlock() {
     setTimeout(() => setErr(null), 1500);
   };
 
-  const onKey = (d: string) => {
-    if (pin.length >= 6 || busy || cooldown > 0) return;
-    const next = pin + d;
-    setPin(next);
-    if (next.length === 6) void tryUnlock(next);
-  };
-
   const attemptsLeft = MAX_ATTEMPTS - failedAttempts;
+  // รหัสมีได้ทั้งแบบตัวเลขและตัวอักษรผสม ความยาวไม่จำกัด — จึงส่งเมื่อผู้ใช้สั่งเท่านั้น
+  // (เดิม auto-submit ตอนครบ 6 หลัก ซึ่งใช้กับรหัสยาวไม่ได้)
+  const canSubmit = pin.length > 0 && !busy && cooldown === 0;
 
   return (
     <Screen className="flex flex-col items-center justify-center">
@@ -93,8 +97,16 @@ export default function Unlock() {
         <Shield size={14} className="text-[var(--dw-green)]" /> {t("unlock.enterPinToUnlock")}
       </p>
 
-      <div className="my-8">
-        <PinDots length={6} filled={pin.length} error={!!err} />
+      <div className="my-8 w-full max-w-[280px]">
+        <SecretInput
+          value={pin}
+          onChange={setPin}
+          onSubmit={() => canSubmit && void tryUnlock(pin)}
+          mode="text"
+          placeholder={t("unlock.enterPinToUnlock")}
+          autoFocus
+          disabled={busy || cooldown > 0}
+        />
         {err && (
           <p className="mt-3 max-w-[260px] text-center text-sm text-[var(--dw-rose)]">{err}</p>
         )}
@@ -103,15 +115,38 @@ export default function Unlock() {
             <Warn size={13} /> {t("unlock.waitPre")} {cooldown} {t("unlock.waitSuf")}
           </p>
         )}
-        {failedAttempts >= 3 && cooldown === 0 && attemptsLeft > 0 && (
-          <p className="mt-2 text-center text-[11px] text-[var(--dw-muted)]">
-            {t("unlock.attemptsPre")} {attemptsLeft} {t("unlock.attemptsSuf")}
+        {/* แสดงตั้งแต่ใส่ผิดครั้งแรก (เดิมซ่อนจนครั้งที่ 3 ซึ่งสายไปสำหรับเตือน)
+            ไล่สีตามความเสี่ยง 3 ระดับ: เหลือ ≤2 = แดง, ≤8 = เหลือง, 9 = สีข้อความปกติ
+            (พลาดครั้งแรกมักเป็นการพิมพ์ผิด จึงยังไม่เตือน — ครั้งที่สองเป็นต้นไปเริ่มเตือน) */}
+        {failedAttempts > 0 && attemptsLeft > 0 && (
+          <p className="mt-2 text-center text-xs text-[var(--dw-muted)]">
+            {t("unlock.attemptsPre")}{" "}
+            <b
+              className="text-base font-bold"
+              style={{
+                color:
+                  attemptsLeft <= 2
+                    ? "var(--dw-rose)"
+                    : attemptsLeft <= 8
+                      ? "var(--dw-amber)"
+                      : "var(--dw-text)",
+              }}
+            >
+              {attemptsLeft}
+            </b>{" "}
+            {t("unlock.attemptsSuf")}
           </p>
         )}
       </div>
 
-      <div className={`w-full max-w-[280px] ${cooldown > 0 || busy ? "pointer-events-none opacity-50" : ""}`}>
-        <PinPad onKey={onKey} onDelete={() => setPin((p) => p.slice(0, -1))} />
+      <div className="w-full max-w-[280px]">
+        <button
+          onClick={() => void tryUnlock(pin)}
+          disabled={!canSubmit}
+          className="dw-btn-primary w-full rounded-2xl py-3.5 font-semibold disabled:opacity-50"
+        >
+          {busy ? "…" : t("unlock.welcomeBack")}
+        </button>
       </div>
 
       <p className="mt-6 flex items-center gap-1.5 text-[11px] text-[var(--dw-muted)]">

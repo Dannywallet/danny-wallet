@@ -364,11 +364,11 @@ export default function SettingsPage() {
             </div>
             <input
               type="password"
-              inputMode="numeric"
-              maxLength={6}
+              
+              
               value={noncePin}
-              onChange={(e) => setNoncePin(e.target.value.replace(/\D/g, ""))}
-              onKeyDown={(e) => e.key === "Enter" && noncePin.length === 6 && !nonceBusy && doResetNonce()}
+              onChange={(e) => setNoncePin(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && noncePin.length > 0 && !nonceBusy && doResetNonce()}
               placeholder={t("tx.enterPin")}
               className="dw-glass w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
               style={{ color: "var(--dw-text)" }}
@@ -380,7 +380,7 @@ export default function SettingsPage() {
             )}
             <button
               onClick={doResetNonce}
-              disabled={noncePin.length < 6 || nonceBusy || stuckCount === null}
+              disabled={!noncePin || nonceBusy || stuckCount === null}
               className="dw-btn-primary mt-4 w-full rounded-2xl py-3.5 font-semibold disabled:opacity-50"
             >
               {nonceBusy ? t("settings.clearing") : t("settings.resetNonceBtn")}
@@ -399,10 +399,10 @@ export default function SettingsPage() {
             </div>
             <input
               type="password"
-              inputMode="numeric"
-              maxLength={6}
+              
+              
               value={revealPin}
-              onChange={(e) => setRevealPin(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => setRevealPin(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && doReveal()}
               placeholder={t("tx.enterPin")}
               className="dw-glass w-full rounded-2xl px-4 py-3 text-center text-lg tracking-[0.4em] outline-none focus:border-[var(--dw-cyan)]/50"
@@ -415,7 +415,7 @@ export default function SettingsPage() {
             )}
             <button
               onClick={doReveal}
-              disabled={revealPin.length < 6}
+              disabled={!revealPin}
               className="dw-btn-primary mt-4 w-full rounded-2xl py-3.5 font-semibold"
             >
               {t("settings.reveal")}

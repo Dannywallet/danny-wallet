@@ -6,7 +6,14 @@ import { useWallet } from "@/lib/wallet/wallet-store";
 import { Screen } from "@/components/wallet/PhoneShell";
 import { TopBar } from "@/components/wallet/TopBar";
 import { SeedPhraseGrid, SeedConfirm } from "@/components/wallet/SeedPhraseGrid";
-import { PinPad, PinDots } from "@/components/wallet/PinPad";
+import {
+  SecretInput,
+  SecretModeTabs,
+  SecretPolicyHint,
+  fillN,
+  type SecretMode,
+} from "@/components/wallet/SecretInput";
+import { validateSecret, MIN_PIN_LEN, MIN_PASSPHRASE_LEN } from "@/lib/wallet/crypto";
 import { copyEphemeral } from "@/lib/wallet/clipboard";
 import { Wallet } from "ethers";
 import { Shield, Warn, Copy, Check, EyeOff } from "@/components/wallet/Icons";
@@ -30,11 +37,14 @@ export default function CreateWallet() {
     []
   );
 
-  // pin
+  // pin / รหัสผ่าน — รองรับทั้งตัวเลขล้วนและตัวอักษรผสม
   const [pin, setPin] = React.useState("");
   const [confirmPin, setConfirmPin] = React.useState("");
   const [pinPhase, setPinPhase] = React.useState<"set" | "repeat">("set");
   const [pinErr, setPinErr] = React.useState(false);
+  const [secretMode, setSecretMode] = React.useState<SecretMode>("text");
+  // พร้อมสร้างเมื่อ: ผ่านนโยบายความยาว + ยืนยันตรงกัน
+  const secretReady = validateSecret(pin).ok && pin === confirmPin && confirmPin.length > 0;
 
   const copySeed = async () => {
     // คัดลอกแล้วล้าง clipboard อัตโนมัติใน 30 วิ (กันค้างใน clipboard)
@@ -201,20 +211,58 @@ export default function CreateWallet() {
             <p className="mt-1 text-sm text-[var(--dw-muted)]">
               {t("create.pinDesc")}
             </p>
-            <div className="my-7">
-              <PinDots
-                length={6}
-                filled={(pinPhase === "set" ? pin : confirmPin).length}
-                error={pinErr}
+            <div className="mt-6 w-full max-w-[300px]">
+              <SecretModeTabs
+                mode={secretMode}
+                onMode={(m) => {
+                  setSecretMode(m);
+                  setPin("");
+                  setConfirmPin("");
+                  setPinPhase("set");
+                }}
+                labels={{ pin: fillN(t("sec.modePin"), MIN_PIN_LEN), text: fillN(t("sec.modeText"), MIN_PASSPHRASE_LEN) }}
               />
-              {pinErr && (
-                <p className="mt-3 text-center text-sm text-[var(--dw-rose)]">
+
+              <SecretInput
+                value={pin}
+                onChange={setPin}
+                mode={secretMode}
+                placeholder={
+                  secretMode === "pin" ? fillN(t("sec.phPin"), MIN_PIN_LEN) : fillN(t("sec.phText"), MIN_PASSPHRASE_LEN)
+                }
+                autoFocus
+                disabled={busy}
+              />
+              <SecretPolicyHint
+                value={pin}
+                mode={secretMode}
+                texts={{ pinTooShort: t("sec.pinTooShort"), textTooShort: t("sec.textTooShort"), ok: t("sec.lengthOk"), digitsOnly: t("sec.digitsOnlyHint") }}
+              />
+
+              <label className="mb-1 mt-4 block text-xs text-[var(--dw-muted)]">
+                {t("create.confirmPinAgain")}
+              </label>
+              <SecretInput
+                value={confirmPin}
+                onChange={setConfirmPin}
+                onSubmit={() => secretReady && void finishCreate(pin)}
+                mode={secretMode}
+                placeholder={t("sec.retype")}
+                disabled={busy}
+              />
+              {confirmPin.length > 0 && confirmPin !== pin && (
+                <p className="mt-2 text-center text-xs text-[var(--dw-rose)]">
                   {t("create.pinMismatch")}
                 </p>
               )}
-            </div>
-            <div className="w-full max-w-[280px]">
-              <PinPad onKey={onKey} onDelete={onDel} />
+
+              <button
+                onClick={() => void finishCreate(pin)}
+                disabled={!secretReady}
+                className="dw-btn-primary mt-6 w-full rounded-2xl py-3.5 font-semibold disabled:opacity-50"
+              >
+                {busy ? "…" : t("common.confirm")}
+              </button>
             </div>
           </div>
         )}
