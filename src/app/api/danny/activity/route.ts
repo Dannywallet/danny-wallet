@@ -61,6 +61,20 @@ export async function GET(req: Request) {
     ]);
     const danPrice = nativeDanPrice(prices);
     if (!transferRes.ok && !txRes.ok) {
+      // 404 ทั้งคู่ = explorer ไม่รู้จักที่อยู่นี้ แปลว่ายังไม่เคยมีธุรกรรม (กระเป๋าใหม่/บัญชีที่เพิ่งเพิ่ม)
+      // ไม่ใช่ข้อผิดพลาด — ถ้าคืน 502 หน้า Activity ของกระเป๋าใหม่จะขึ้น error ทั้งที่แค่ยังว่างเปล่า
+      if (transferRes.status === 404 && txRes.status === 404) {
+        return NextResponse.json({
+          chainId: 5069,
+          source: "dannyscan.com (Blockscout)",
+          address,
+          count: 0,
+          nativeCount: 0,
+          tokenCount: 0,
+          fetchedAt: new Date().toISOString(),
+          txs: [],
+        });
+      }
       return NextResponse.json(
         { error: `explorer ตอบกลับ ${transferRes.status}/${txRes.status}`, txs: [] },
         { status: 502 }

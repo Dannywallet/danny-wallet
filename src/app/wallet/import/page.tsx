@@ -2,7 +2,8 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { useWallet } from "@/lib/wallet/wallet-store";
+import { useWallet, deriveAddress } from "@/lib/wallet/wallet-store";
+import { scanUsedAccounts } from "@/lib/wallet/account-scan";
 import { Screen } from "@/components/wallet/PhoneShell";
 import { TopBar } from "@/components/wallet/TopBar";
 import {
@@ -25,7 +26,8 @@ const SET = new Set(WORDLIST);
 export default function ImportWallet() {
   const router = useRouter();
   const { t: tr } = useI18n();
-  const { createWallet, createWalletFromKey } = useWallet();
+  const { createWallet, createWalletFromKey, addDerivedAccounts } = useWallet();
+  const [scanning, setScanning] = React.useState(false); // กำลังค้นหาบัญชีลูกที่เคยใช้งาน
   const [tab, setTab] = React.useState<"seed" | "key">("seed");
   const [count, setCount] = React.useState<12 | 24>(12);
   const [words, setWords] = React.useState<string[]>(Array(12).fill(""));
@@ -88,6 +90,17 @@ export default function ImportWallet() {
       if (tab === "seed") {
         const w = Wallet.fromPhrase(phrase); // throw ถ้า checksum ผิด
         await createWallet(secret, phrase, w.address);
+        // กู้บัญชีลูกที่เคยใช้งานกลับมาด้วย — วลีเดิม derive ได้ที่อยู่เดิมเสมอ
+        // ถ้า explorer/RPC มีปัญหาก็แค่ข้ามไป ผู้ใช้ยังกด "เพิ่มบัญชี (จาก seed)" เองได้เหมือนเดิม
+        try {
+          setScanning(true);
+          const found = await scanUsedAccounts((i) => deriveAddress(phrase, i), { timeoutMs: 12_000 });
+          if (found.indexes.length > 0) addDerivedAccounts(phrase, found.indexes);
+        } catch {
+          /* ไม่ให้การสแกนขวางการ import */
+        } finally {
+          setScanning(false);
+        }
       } else {
         const w = new Wallet("0x" + pkHex); // throw ถ้า key ผิด
         await createWalletFromKey(secret, w.privateKey, w.address);
@@ -260,7 +273,7 @@ export default function ImportWallet() {
                 disabled={!secretReady}
                 className="dw-btn-primary mt-6 w-full rounded-2xl py-3.5 font-semibold disabled:opacity-50"
               >
-                {busy ? "…" : tr("common.confirm")}
+                {busy ? (scanning ? tr("import.scanning") : "…") : tr("common.confirm")}
               </button>
             </div>
           </div>

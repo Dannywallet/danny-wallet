@@ -93,6 +93,8 @@ type WalletCtx = WalletState & {
   revealMnemonic: (pin: string) => Promise<string | null>;
   changePin: (oldPin: string, newPin: string) => Promise<boolean>;
   addAccount: (pin: string) => Promise<{ ok: boolean; address?: string; reason?: string }>;
+  /** เพิ่มบัญชีที่ derive จาก seed กลับเข้ามา — ใช้ตอน import เพื่อกู้บัญชีลูกที่เคยใช้งาน (คืนจำนวนที่เพิ่มจริง) */
+  addDerivedAccounts: (phrase: string, indexes: number[]) => number;
   createAccount: (pin: string) => Promise<{ ok: boolean; address?: string; reason?: string }>;
   importAccount: (pin: string, privateKey: string) => Promise<{ ok: boolean; address?: string; reason?: string }>;
   switchAccount: (index: number) => void;
@@ -201,6 +203,28 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const accounts = [...cur.accounts, { name: `บัญชี ${cur.accounts.length + 1}`, address, index: hdIndex }];
     persist({ accounts, activeIndex: accounts.length - 1 });
     return { ok: true, address };
+  }, [persist]);
+
+  /**
+   * เพิ่มบัญชีลูกที่ derive จากวลีเดิมกลับเข้ามา — ใช้หลัง import เมื่อสแกนเจอว่าเคยใช้งานบนเชน
+   * ไม่ต้องใช้ PIN เพราะผู้เรียกถือวลีอยู่แล้ว และที่อยู่ derive ในนี้เอง จึงใส่ที่อยู่มั่วเข้ามาไม่ได้
+   */
+  const addDerivedAccounts = useCallback((phrase: string, indexes: number[]) => {
+    const cur = load();
+    if (!cur.created) return 0;
+    const have = new Set(cur.accounts.map((a) => a.index).filter((i): i is number => i != null));
+    const added: WalletAccount[] = [];
+    for (const i of [...new Set(indexes)].sort((a, b) => a - b)) {
+      if (have.has(i) || cur.accounts.length + added.length >= MAX_ACCOUNTS) continue;
+      added.push({
+        name: `บัญชี ${cur.accounts.length + added.length + 1}`,
+        address: deriveAddress(phrase, i),
+        index: i,
+      });
+    }
+    if (added.length === 0) return 0;
+    persist({ accounts: [...cur.accounts, ...added] });
+    return added.length;
   }, [persist]);
 
   // สร้างบัญชี/กระเป๋าใหม่ด้วยกุญแจสุ่ม (ของตัวเอง) — ใช้ได้แม้กระเป๋าเป็นแบบนำเข้า (ไม่มี seed)
@@ -432,7 +456,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     address: state.accounts[state.activeIndex]?.address ?? null,
     hasSeed: state.enc != null,
     createWallet, createWalletFromKey, unlock, lock, reset, toggleBalance, setPref, revealMnemonic, changePin,
-    addAccount, createAccount, importAccount, switchAccount, renameAccount, removeAccount, getActivePrivateKey, revealPrivateKey,
+    addAccount, addDerivedAccounts, createAccount, importAccount, switchAccount, renameAccount, removeAccount, getActivePrivateKey, revealPrivateKey,
   };
 
   return React.createElement(Ctx.Provider, { value }, children);
