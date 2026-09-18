@@ -18,6 +18,8 @@ import { DannyLogo } from "@/components/wallet/DannyLogo";
 import { LanguageToggle } from "@/components/wallet/LanguageToggle";
 import { CurrencySelect } from "@/components/wallet/CurrencySelect";
 import { useI18n } from "@/lib/wallet/i18n";
+import { findLookalike } from "@/lib/wallet/address-safety";
+import { FullAddress } from "@/components/wallet/FullAddress";
 import { QrCode } from "@/components/wallet/QrCode";
 import { QrScanner } from "@/components/wallet/QrScanner";
 import { PriceChart, type ChartPoint } from "@/components/wallet/PriceChart";
@@ -1039,6 +1041,16 @@ function SendView() {
   const validAddr = /^0x[a-fA-F0-9]{40}$/.test(to.trim());
   const enough = !!token && amt > 0 && amt <= token.balance;
 
+  // ที่อยู่ที่รู้จัก = เคยส่งเองจริง + สมุดที่อยู่ที่บันทึกไว้ + บัญชีของตัวเอง — ใช้จับที่อยู่ปลอมหน้าคล้าย
+  const knownRecipients = React.useMemo(
+    () => [...recent.map((c) => c.address), ...contacts.map((c) => c.address), ...accounts.map((a) => a.address)],
+    [recent, contacts, accounts]
+  );
+  const lookalike = validAddr ? findLookalike(to.trim(), knownRecipients) : null;
+  const knownTo = knownRecipients.some((k) => k.toLowerCase() === to.trim().toLowerCase());
+  const [lookalikeAck, setLookalikeAck] = React.useState(false);
+  React.useEffect(() => setLookalikeAck(false), [to]); // เปลี่ยนปลายทาง = ต้องยืนยันใหม่
+
   const openPin = async () => {
     if (!token || !address) return;
     setErr(null); setPin(""); setAskPin(true); setFee("loading");
@@ -1047,6 +1059,7 @@ function SendView() {
   };
   const submit = async () => {
     if (!token) return;
+    if (lookalike && !lookalikeAck) return; // ที่อยู่หน้าคล้ายต้องติ๊กยืนยันก่อนเสมอ
     setErr(null); setPhase("sending");
     try {
       const pk = await getActivePrivateKey(pin);
@@ -1172,13 +1185,37 @@ function SendView() {
               )}
             </div>
           )}
-          <button onClick={openPin} disabled={!enough || !validAddr} className="dw-btn-primary w-full rounded-2xl py-4 font-semibold disabled:opacity-50">
+          {lookalike ? (
+            <div className="rounded-2xl border border-[var(--dw-rose)]/40 bg-[var(--dw-rose)]/[0.08] p-4 text-xs">
+              <p className="flex items-start gap-2 font-semibold text-[var(--dw-rose)]">
+                <Warn size={15} className="mt-0.5 shrink-0" />
+                {tr("send.lookalikeTitle")}
+              </p>
+              <p className="mt-1.5 leading-relaxed text-[var(--dw-muted)]">{tr("send.lookalikeBody")}</p>
+              <p className="mt-2.5 text-[var(--dw-muted)]">{tr("send.lookalikeReal")}</p>
+              <FullAddress address={lookalike} className="mt-0.5 block text-[12px] text-[var(--dw-text)]" />
+              <p className="mt-2 text-[var(--dw-muted)]">{tr("send.to")}</p>
+              <FullAddress address={to.trim()} className="mt-0.5 block text-[12px] text-[var(--dw-text)]" />
+              <label className="mt-3 flex cursor-pointer items-start gap-2 text-[var(--dw-text)]">
+                <input type="checkbox" checked={lookalikeAck} onChange={(e) => setLookalikeAck(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--dw-rose)]" />
+                {tr("send.lookalikeAck")}
+              </label>
+            </div>
+          ) : (
+            validAddr && !knownTo && (
+              <div className="flex items-start gap-2 rounded-2xl border border-[var(--dw-amber)]/30 bg-[var(--dw-amber)]/[0.06] p-3 text-xs text-[var(--dw-amber)]">
+                <Warn size={15} className="mt-0.5 shrink-0" />
+                {tr("send.firstTimeWarn")}
+              </div>
+            )
+          )}
+          <button onClick={openPin} disabled={!enough || !validAddr || (!!lookalike && !lookalikeAck)} className="dw-btn-primary w-full rounded-2xl py-4 font-semibold disabled:opacity-50">
             {!validAddr ? tr("send.enterRecipient") : !amt ? tr("swap.enterAmount") : !enough ? tr("swap.insufficient") : tr("send.sendPin")}
           </button>
         </>
       )}
       <PinModal open={askPin} onClose={() => { setAskPin(false); setPin(""); }} title={tr("send.confirmTitle2")}
-        subtitle={token ? `${tr("send.sendPrefix")} ${formatToken(amt, token.symbol)} → ${shortAddress(to.trim())}` : ""}
+        subtitle={token ? `${tr("send.sendPrefix")} ${formatToken(amt, token.symbol)} → ${to.trim()}` : ""}
         fee={fee} pin={pin} setPin={setPin} onSubmit={submit} busy={phase === "sending"} busyText={statusText || tr("send.sending")} err={err} />
       <QrScanner open={scanOpen} onClose={() => setScanOpen(false)} onScan={(text) => {
         const addr = parseScannedAddress(text);

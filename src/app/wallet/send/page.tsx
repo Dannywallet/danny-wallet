@@ -14,6 +14,8 @@ import { Check, Warn, Shield, ChevronRight, ArrowUp, ArrowDown, Scan } from "@/c
 import { executeSend, estimateSendFee, explorerTx } from "@/lib/wallet/dandex-swap";
 import { QrScanner } from "@/components/wallet/QrScanner";
 import { useI18n } from "@/lib/wallet/i18n";
+import { FullAddress } from "@/components/wallet/FullAddress";
+import { findLookalike } from "@/lib/wallet/address-safety";
 
 // ดึงที่อยู่ 0x… จากผล QR (รองรับ ethereum:0x…, มี ?/@ ต่อท้าย, ตัวพิมพ์ใหญ่)
 function parseScannedAddress(raw: string): string | null {
@@ -78,10 +80,22 @@ export default function Send() {
   const addrValid = isLikelyAddress(to);
   const enough = !!token && amt > 0 && amt <= token.balance;
   const canNext = addrValid && enough;
+
+  // ที่อยู่ที่ผู้ใช้เคยส่งเองจริง + บัญชีของตัวเอง — ใช้จับที่อยู่ปลอมหน้าคล้าย (address poisoning)
+  const knownRecipients = React.useMemo(
+    () => [...contacts.map((c) => c.address), ...accounts.map((a) => a.address)],
+    [contacts, accounts]
+  );
+  const toTrim = to.trim();
+  const lookalike = addrValid ? findLookalike(toTrim, knownRecipients) : null;
+  const knownTo = knownRecipients.some((k) => k.toLowerCase() === toTrim.toLowerCase());
+  const [lookalikeAck, setLookalikeAck] = React.useState(false);
+  React.useEffect(() => setLookalikeAck(false), [toTrim]); // เปลี่ยนปลายทาง = ต้องยืนยันใหม่
   const usd = token?.priceUsd != null ? amt * token.priceUsd : null;
 
   const submit = async () => {
     if (!token) return;
+    if (lookalike && !lookalikeAck) return; // ที่อยู่หน้าคล้ายต้องติ๊กยืนยันก่อนเสมอ
     setErr(null);
     setSending(true);
     try {
@@ -228,7 +242,12 @@ export default function Send() {
                   <Warn size={13} /> {t("send.invalidAddr")}
                 </p>
               )}
-              {addrValid && (
+              {lookalike && (
+                <p className="mt-1.5 flex items-start gap-1 text-xs font-medium text-[var(--dw-rose)]">
+                  <Warn size={13} className="mt-0.5 shrink-0" /> {t("send.lookalikeTitle")}
+                </p>
+              )}
+              {addrValid && !lookalike && (
                 <p className="mt-1.5 flex items-center gap-1 text-xs text-[var(--dw-green)]">
                   <Check size={13} /> {t("send.validAddrPrefix")} {CHAIN.short}
                 </p>
@@ -350,8 +369,12 @@ export default function Send() {
             </div>
 
             <div className="dw-glass divide-y divide-white/8 rounded-2xl px-4">
-              <Row label={t("send.from")} value={`${accounts[activeIndex]?.name || t("tx.account")} · ${address ? shortAddress(address) : "—"}`} />
-              <Row label={t("send.to")} value={shortAddress(to)} />
+              <Row label={t("send.from")} value={`${accountLabel(accounts[activeIndex]?.name || "", t("tx.account"), t("acct.importedTag")) || t("tx.account")} · ${address ? shortAddress(address) : "—"}`} />
+              {/* ปลายทางแสดงเต็มทุกตัว — ที่อยู่ปลอมจะหัวท้ายเหมือนของจริง ต่างกันแค่ตรงกลาง */}
+              <div className="py-3 text-sm">
+                <span className="text-[var(--dw-muted)]">{t("send.to")}</span>
+                <FullAddress address={toTrim} className="mt-1 block text-[13px] font-medium leading-relaxed" />
+              </div>
               <Row label={t("common.network")} value={CHAIN.name} />
               <Row label={t("tx.gasEst")} value={gasFee === "loading" ? t("tx.estimating") : gasFee != null ? `≈ ${gasFee.toLocaleString("en-US", { maximumFractionDigits: 8 })} DAN` : "—"} />
             </div>
@@ -361,16 +384,38 @@ export default function Send() {
               {t("send.signNote")}
             </div>
 
-            {!contacts.some((c) => c.address.toLowerCase() === to.toLowerCase()) && (
-              <div className="mt-3 flex items-start gap-2 rounded-2xl border border-[var(--dw-amber)]/30 bg-[var(--dw-amber)]/[0.06] p-3 text-xs text-[var(--dw-amber)]">
-                <Warn size={15} className="mt-0.5 shrink-0" />
-                {t("send.firstTimeWarn")}
+            {lookalike ? (
+              <div className="mt-3 rounded-2xl border border-[var(--dw-rose)]/40 bg-[var(--dw-rose)]/[0.08] p-3.5 text-xs">
+                <p className="flex items-start gap-2 font-semibold text-[var(--dw-rose)]">
+                  <Warn size={15} className="mt-0.5 shrink-0" />
+                  {t("send.lookalikeTitle")}
+                </p>
+                <p className="mt-1.5 leading-relaxed text-[var(--dw-muted)]">{t("send.lookalikeBody")}</p>
+                <p className="mt-2.5 text-[var(--dw-muted)]">{t("send.lookalikeReal")}</p>
+                <FullAddress address={lookalike} className="mt-0.5 block text-[12px] text-[var(--dw-text)]" />
+                <label className="mt-3 flex cursor-pointer items-start gap-2 text-[var(--dw-text)]">
+                  <input
+                    type="checkbox"
+                    checked={lookalikeAck}
+                    onChange={(e) => setLookalikeAck(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--dw-rose)]"
+                  />
+                  {t("send.lookalikeAck")}
+                </label>
               </div>
+            ) : (
+              !knownTo && (
+                <div className="mt-3 flex items-start gap-2 rounded-2xl border border-[var(--dw-amber)]/30 bg-[var(--dw-amber)]/[0.06] p-3 text-xs text-[var(--dw-amber)]">
+                  <Warn size={15} className="mt-0.5 shrink-0" />
+                  {t("send.firstTimeWarn")}
+                </div>
+              )
             )}
 
             <button
               onClick={() => { setErr(null); setPin(""); setAskPin(true); }}
-              className="dw-btn-primary mt-5 w-full rounded-2xl py-4 font-semibold"
+              disabled={!!lookalike && !lookalikeAck}
+              className="dw-btn-primary mt-5 w-full rounded-2xl py-4 font-semibold disabled:opacity-50"
             >
               {t("send.confirmSendPin")}
             </button>
@@ -394,7 +439,8 @@ export default function Send() {
       {/* ใส่ PIN เพื่อเซ็น */}
       <Sheet open={askPin} onClose={() => { setAskPin(false); setPin(""); }} title={t("tx.pinConfirm")}>
         <p className="mb-3 text-sm text-[var(--dw-muted)]">
-          {t("send.sendPrefix")} {token ? formatToken(amt, token.symbol) : ""} {t("send.toMid")} {shortAddress(to)}
+          {t("send.sendPrefix")} {token ? formatToken(amt, token.symbol) : ""} {t("send.toMid")}{" "}
+          <FullAddress address={toTrim} className="text-[var(--dw-text)]" />
         </p>
         <input
           type="password"

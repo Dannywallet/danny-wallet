@@ -1,32 +1,26 @@
 import { NextResponse } from "next/server";
+import {
+  buildSentContacts,
+  unverifiedTokenTxHashes,
+  type RawTransfer,
+  type RawTx,
+  type SentContact,
+} from "@/lib/wallet/contacts";
 
-// ดึง "รายชื่อล่าสุด" จากที่อยู่ที่เคยทำธุรกรรมจริงบน Danny Chain (5069)
-// เน้นผู้รับล่าสุด (ที่เราเคยส่งไป) แล้วตามด้วยคู่ธุรกรรมอื่น
+// รายชื่อแนะนำในหน้าส่ง = ที่อยู่ที่ผู้ใช้ "เคยส่งไปเอง" บน Danny Chain (5069)
+// ไม่รวมคนที่ส่งเข้ามาอย่างเดียว เพื่อกันการหลอกด้วยที่อยู่ปลอม — เหตุผลอยู่ใน lib/wallet/contacts.ts
 export const revalidate = 60;
 
 const BASE = "https://dannyscan.com/api/v2/addresses";
+const TX = "https://dannyscan.com/api/v2/transactions";
 
-type Party = { hash: string } | null;
-type RawTransfer = { from: Party; to: Party; timestamp: string; type: string };
-type RawTx = { from: Party; to: Party; timestamp: string; value: string | null };
-
-export type DannyContact = {
-  address: string;
-  short: string;
-  direction: "sent" | "received";
-  lastTs: number;
-};
-
-function short(a: string): string {
-  return a && a.length >= 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
-}
+export type DannyContact = SentContact;
 
 export async function GET(req: Request) {
   const address = (new URL(req.url).searchParams.get("address") || "").trim();
   if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
     return NextResponse.json({ error: "address ไม่ถูกต้อง", contacts: [] }, { status: 400 });
   }
-  const me = address.toLowerCase();
 
   try {
     const opts = { headers: { Accept: "application/json" }, next: { revalidate } };
@@ -34,54 +28,25 @@ export async function GET(req: Request) {
       fetch(`${BASE}/${address}/token-transfers`, opts),
       fetch(`${BASE}/${address}/transactions`, opts),
     ]);
-
-    // รวมคู่ธุรกรรม (counterparty) จากทั้ง token transfers และ native
-    type Entry = { addr: string; dir: "sent" | "received"; ts: number };
-    const entries: Entry[] = [];
-
-    if (trRes.ok) {
-      const j = (await trRes.json()) as { items: RawTransfer[] };
-      for (const t of j.items || []) {
-        if (t.type !== "token_transfer") continue;
-        const out = t.from?.hash?.toLowerCase() === me;
-        const cp = (out ? t.to?.hash : t.from?.hash) || "";
-        if (cp && cp.toLowerCase() !== me) {
-          entries.push({ addr: cp, dir: out ? "sent" : "received", ts: Date.parse(t.timestamp) || 0 });
-        }
-      }
-    }
-    if (txRes.ok) {
-      const j = (await txRes.json()) as { items: RawTx[] };
-      for (const t of j.items || []) {
-        const out = t.from?.hash?.toLowerCase() === me;
-        const cp = (out ? t.to?.hash : t.from?.hash) || "";
-        // ข้าม contract call ที่ไม่ใช่การโอนมูลค่า (value 0) เพื่อให้ได้ที่อยู่กระเป๋าจริง ๆ
-        if (cp && cp.toLowerCase() !== me && t.value && t.value !== "0") {
-          entries.push({ addr: cp, dir: out ? "sent" : "received", ts: Date.parse(t.timestamp) || 0 });
-        }
-      }
-    }
-
-    // dedupe ตามที่อยู่ — เก็บรายการล่าสุด, จัดลำดับ "เคยส่งไป" มาก่อน
-    const byAddr = new Map<string, DannyContact>();
-    for (const e of entries) {
-      const key = e.addr.toLowerCase();
-      const prev = byAddr.get(key);
-      if (!prev || e.ts > prev.lastTs) {
-        byAddr.set(key, { address: e.addr, short: short(e.addr), direction: e.dir, lastTs: e.ts });
-      }
-    }
-
-    const contacts = [...byAddr.values()]
-      .sort((a, b) => {
-        if (a.direction !== b.direction) return a.direction === "sent" ? -1 : 1;
-        return b.lastTs - a.lastTs;
-      })
-      .slice(0, 8);
+    // explorer ตอบไม่ได้ฝั่งใดฝั่งหนึ่ง = ถือว่าไม่มีข้อมูลฝั่งนั้น (ปลอดภัยไว้ก่อน: แนะนำน้อยลง ไม่ใช่มากขึ้น)
+    const txs = txRes.ok ? (((await txRes.json()) as { items?: RawTx[] }).items ?? []) : [];
+    const transfers = trRes.ok ? (((await trRes.json()) as { items?: RawTransfer[] }).items ?? []) : [];
+    // token transfer ขาออกที่ tx หลุดหน้าแรก — ดึง tx ตาม hash มายืนยันว่าเราเซ็นเองจริง
+    const missing = unverifiedTokenTxHashes(address, txs, transfers);
+    const extra = (
+      await Promise.all(
+        missing.map((h) =>
+          fetch(`${TX}/${h}`, opts)
+            .then((r) => (r.ok ? (r.json() as Promise<RawTx>) : null))
+            .catch(() => null)
+        )
+      )
+    ).filter((t): t is RawTx => t !== null);
+    const contacts = buildSentContacts(address, [...txs, ...extra], transfers);
 
     return NextResponse.json({
       chainId: 5069,
-      source: "dannyscan.com (ประวัติธุรกรรมจริง)",
+      source: "dannyscan.com (ธุรกรรมที่ผู้ใช้เป็นผู้ส่งเท่านั้น)",
       address,
       count: contacts.length,
       contacts,
